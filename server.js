@@ -10,12 +10,11 @@ const __dirname  = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/public", express.static(path.join(__dirname, "public")));
 
 //
 // ==== CONFIG ====
 //
-const ADMIN_PATH   = process.env.ADMIN_PATH || "/example";   // the secret path only admins know
+const ADMIN_PATH   = process.env.ADMIN_PATH || "/example";   // secret path only admins know
 const SLUG_TTL_MS  = 5 * 60 * 1000;                          // slug valid for 5 minutes
 const HOST_TITLE   = "Lazy Devs | Key Delivery";
 const BRAND        = "Lazy Devs";
@@ -44,8 +43,7 @@ function takeRandomKey() {
   if (keyPool.length === 0) return null;
   const i = Math.floor(Math.random() * keyPool.length);
   const key = keyPool[i];
-  // remove from pool (one-time globally)
-  keyPool.splice(i, 1);
+  keyPool.splice(i, 1); // remove from pool (one-time globally)
   return key;
 }
 function cleanExpired() {
@@ -56,13 +54,11 @@ function cleanExpired() {
     }
   }
 }
-// periodic cleanup
 setInterval(cleanExpired, 60 * 1000);
 
 //
-// ==== ADMIN ENTRY (LootLabs Destination URL) ====
+// ==== ADMIN ENTRY ====
 // Visiting this creates a fresh one-time slug and redirects to it.
-// Example: https://your.app/example  ->  302 ->  /k/<slug>?t=<nonce>
 //
 app.get(ADMIN_PATH, (req, res) => {
   const key = takeRandomKey();
@@ -85,7 +81,6 @@ app.get(ADMIN_PATH, (req, res) => {
 
 //
 // ==== ONE-TIME KEY PAGE ====
-// Only renders if slug exists, not expired, not consumed, and nonce matches.
 //
 app.get("/k/:slug", (req, res) => {
   const { slug } = req.params;
@@ -100,7 +95,6 @@ app.get("/k/:slug", (req, res) => {
     return res.status(410).sendFile(path.join(__dirname, "public/expired.html"));
   }
 
-  // Render minimal branded page with inline key and copy handler.
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -108,18 +102,12 @@ app.get("/k/:slug", (req, res) => {
   <title>${HOST_TITLE}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    :root{--bg:#0b0e12;--panel:#12161d;--text:#e7edf5;--muted:#9fb0c6;--accent:#4da3ff;--accent2:#215aa6;--border:#212833}
-    body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial}
-    .card{background:var(--panel);padding:36px;border-radius:16px;border:1px solid var(--border);max-width:460px;width:100%;text-align:center;box-shadow:0 6px 28px rgba(0,0,0,.45)}
-    h1{margin:0 0 6px;font-size:24px;letter-spacing:.4px}
-    h2{margin:0 0 18px;font-size:14px;color:var(--muted);font-weight:500}
-    code{display:block;background:#0e131a;border:1px solid var(--border);padding:14px;border-radius:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:16px;word-break:break-all;margin-bottom:16px}
-    button{background:linear-gradient(180deg,var(--accent),var(--accent2));border:none;color:#fff;padding:12px 18px;font-size:15px;font-weight:600;border-radius:10px;cursor:pointer;transition:transform .05s ease,opacity .2s ease}
-    button:hover{opacity:.92}
-    button:active{transform:translateY(1px)}
-    button:disabled{background:#30363d;cursor:not-allowed}
-    .msg{margin-top:14px;color:var(--muted);font-size:13px}
-    .brand{margin-top:24px;color:var(--muted);font-size:12px;letter-spacing:.5px}
+    body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0e12;color:#e7edf5;font-family:system-ui}
+    .card{background:#12161d;padding:36px;border-radius:16px;border:1px solid #212833;max-width:460px;width:100%;text-align:center}
+    h1{margin:0 0 6px;font-size:24px}
+    code{display:block;background:#0e131a;border:1px solid #212833;padding:14px;border-radius:10px;margin-bottom:16px}
+    button{background:linear-gradient(180deg,#4da3ff,#215aa6);border:none;color:#fff;padding:12px 18px;font-size:15px;font-weight:600;border-radius:10px;cursor:pointer}
+    .msg{margin-top:14px;color:#9fb0c6;font-size:13px}
   </style>
 </head>
 <body>
@@ -129,7 +117,6 @@ app.get("/k/:slug", (req, res) => {
     <code id="keyBox">${rec.key}</code>
     <button id="copyBtn">Copy Key</button>
     <div class="msg" id="msg">Copy the key. This page will expire immediately after.</div>
-    <div class="brand">© ${new Date().getFullYear()} ${BRAND}</div>
   </div>
 <script>
   const slug  = ${JSON.stringify(slug)};
@@ -162,7 +149,6 @@ app.get("/k/:slug", (req, res) => {
     }
   });
 
-  // Also consume if they navigate away or refresh
   window.addEventListener('beforeunload', consume);
 </script>
 </body>
@@ -172,8 +158,7 @@ app.get("/k/:slug", (req, res) => {
 });
 
 //
-// ==== CONSUME (invalidate) ====
-// Marks the slug as consumed. Requires the correct nonce.
+// ==== CONSUME ====
 //
 app.post("/k/:slug/consume", (req, res) => {
   const { slug } = req.params;
@@ -187,7 +172,32 @@ app.post("/k/:slug/consume", (req, res) => {
 });
 
 //
-// ==== HARD 404s FOR ANYTHING ELSE ====
+// ==== SCRIPT DELIVERY ====
+// Requires ?key= param
+//
+app.get("/script", (req, res) => {
+  const { key } = req.query;
+
+  if (!key || !keyPool.includes(key)) {
+    return res.status(403).send("Access Denied");
+  }
+
+  const scriptFile = path.join(__dirname, "public", "nmt.txt");
+  if (!fs.existsSync(scriptFile)) {
+    return res.status(500).send("Script missing.");
+  }
+
+  res.type("text/plain");
+  res.sendFile(scriptFile);
+});
+
+// Deny direct public file access
+app.use("/public", (_req, res) => {
+  res.status(403).send("Access Denied");
+});
+
+//
+// ==== FALLBACK ====
 //
 app.get("/", (_req, res) => {
   res.status(404).send("Not Found");
