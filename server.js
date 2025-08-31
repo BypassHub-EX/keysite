@@ -173,7 +173,8 @@ app.post("/k/:slug/consume", (req, res) => {
 
 //
 // ==== SCRIPT DELIVERY ====
-// Requires ?key= param
+// Only works if ?key= param is valid.
+// Script file is stored in /secrets/nmt.scripts
 //
 app.get("/script", (req, res) => {
   const { key } = req.query;
@@ -182,7 +183,7 @@ app.get("/script", (req, res) => {
     return res.status(403).send("Access Denied");
   }
 
-  const scriptFile = path.join(__dirname, "public", "nmt.txt");
+  const scriptFile = path.join(__dirname, "secrets", "nmt.scripts");
   if (!fs.existsSync(scriptFile)) {
     return res.status(500).send("Script missing.");
   }
@@ -191,8 +192,11 @@ app.get("/script", (req, res) => {
   res.sendFile(scriptFile);
 });
 
-// Deny direct public file access
+// Block direct folder browsing
 app.use("/public", (_req, res) => {
+  res.status(403).send("Access Denied");
+});
+app.use("/secrets", (_req, res) => {
   res.status(403).send("Access Denied");
 });
 
