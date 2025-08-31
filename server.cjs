@@ -9,30 +9,27 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ==== CONFIG ====
-const ADMIN_PATH  = process.env.ADMIN_PATH || "/lazy-secret-admin-path-9283";
-const SLUG_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const BRAND       = "Lazy Devs";
+const BRAND = "Lazy Devs";
+const ADMIN_PATH = process.env.ADMIN_PATH || "/lazy-secret-admin"; // set secret admin path
+const SLUG_TTL_MS = 5 * 60 * 1000;
 const SCRIPT_FILE = path.join(__dirname, "secrets", "nmt.scripts");
-
-// ==== KEY STORAGE ====
 const KEYS_FILE = path.join(__dirname, "keys.txt");
-if (!fs.existsSync(KEYS_FILE)) {
-  fs.writeFileSync(KEYS_FILE, "");
-}
-let keyPool = fs.readFileSync(KEYS_FILE, "utf8")
-  .split(/\r?\n/).map(s => s.trim()).filter(Boolean);
 
-// slug store
+// ==== KEYS ====
+let keyPool = [];
+if (fs.existsSync(KEYS_FILE)) {
+  keyPool = fs.readFileSync(KEYS_FILE, "utf8")
+    .split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+}
 const slugs = new Map();
-const randomSlug  = (len=10)=> crypto.randomBytes(len).toString("base64url").slice(0,len);
+const randomSlug = (len=10)=> crypto.randomBytes(len).toString("base64url").slice(0,len);
 const randomNonce = ()=> crypto.randomBytes(16).toString("base64url");
 function takeRandomKey(){
   if (keyPool.length===0) return null;
   const i = Math.floor(Math.random()*keyPool.length);
   const key = keyPool[i];
   keyPool.splice(i,1);
-  // also remove from keys.txt
-  fs.writeFileSync(KEYS_FILE, keyPool.join("\n"));
+  fs.writeFileSync(KEYS_FILE, keyPool.join("\n")); // persist removal
   return key;
 }
 setInterval(()=>{
@@ -60,79 +57,94 @@ app.get("/k/:slug", (req,res)=>{
   const { slug } = req.params;
   const { t: nonce } = req.query;
   const rec = slugs.get(slug);
-  const expiredHtml = path.join(__dirname, "public", "expired.html");
 
-  if (!rec) return res.status(404).sendFile(expiredHtml);
-  if (rec.consumed) return res.status(410).sendFile(expiredHtml);
+  if (!rec) return res.status(404).send("Key expired or invalid.");
+  if (rec.consumed) return res.status(410).send("This key has already been used.");
   if (!nonce || nonce !== rec.nonce) return res.status(403).send("Forbidden");
-  if (Date.now() > rec.expiresAt) { slugs.delete(slug); return res.status(410).sendFile(expiredHtml); }
+  if (Date.now() > rec.expiresAt) { slugs.delete(slug); return res.status(410).send("Key expired."); }
 
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${BRAND} Key</title>
-<style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0e12;color:#e7edf5;font-family:system-ui}
-.card{background:#12161d;padding:36px;border-radius:16px;border:1px solid #212833;max-width:460px;width:100%;text-align:center}
-h1{margin:0 0 6px;font-size:24px}
-code{display:block;background:#0e131a;border:1px solid #212833;padding:14px;border-radius:10px;margin-bottom:16px;font-family:monospace;font-size:18px}
-button{background:linear-gradient(180deg,#4da3ff,#215aa6);border:none;color:#fff;padding:12px 18px;font-size:15px;font-weight:600;border-radius:10px;cursor:pointer}
-.msg{margin-top:14px;color:#9fb0c6;font-size:13px}</style></head>
-<body><div class="card"><h1>${BRAND}</h1><h2>One-Time Key</h2>
-<code id="keyBox">${rec.key}</code><button id="copyBtn">Copy Key</button>
-<div class="msg" id="msg">Copying key...</div></div>
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${BRAND} | One-Time Key</title>
+  <style>
+  body{background:#0b0e12;color:#e7edf5;font-family:system-ui;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
+  .card{background:#12161d;padding:40px;border-radius:16px;text-align:center;border:1px solid #212833}
+  button{margin-top:15px;background:linear-gradient(180deg,#4da3ff,#215aa6);border:none;color:#fff;padding:12px 18px;font-weight:600;border-radius:10px;cursor:pointer}
+  </style></head><body>
+  <div class="card">
+    <h1>${BRAND}</h1>
+    <h2>Your One-Time Key</h2>
+    <code id="keyBox">${rec.key}</code><br>
+    <button id="copyBtn">Copy Key</button>
+    <p id="msg">This page will expire once the key is copied.</p>
+  </div>
 <script>
 const slug=${JSON.stringify(slug)}, nonce=${JSON.stringify(rec.nonce)};
-const key=document.getElementById('keyBox').textContent.trim();
-async function consume(){try{await fetch('/k/'+encodeURIComponent(slug)+'/consume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nonce})});}catch(e){}}
-navigator.clipboard.writeText(key).then(()=>{document.getElementById('msg').textContent='Key copied! Page now invalid.';consume();setTimeout(()=>{location.replace('/public/expired.html');},900);});
-document.getElementById('copyBtn').addEventListener('click',()=>{navigator.clipboard.writeText(key);consume();location.replace('/public/expired.html');});
-</script></body></html>`;
+const key=document.getElementById("keyBox").textContent.trim();
+const btn=document.getElementById("copyBtn"), msg=document.getElementById("msg");
+async function consume(){try{await fetch('/k/'+encodeURIComponent(slug)+'/consume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nonce})});}catch{}}
+btn.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(key);btn.disabled=true;msg.textContent="Copied! Key is now invalid.";await consume();setTimeout(()=>{document.body.innerHTML="<h1 style='color:#e7edf5;text-align:center'>Key Deleted</h1>";},800);}catch{msg.textContent="Copy failed. Copy manually.";}});</script>
+</body></html>`;
   res.status(200).send(html);
 });
-
-// ==== CONSUME ====
 app.post("/k/:slug/consume",(req,res)=>{
-  let body = "";
-  req.on("data", chunk => body += chunk);
-  req.on("end", ()=>{
-    try {
-      const payload = body ? JSON.parse(body) : {};
-      const rec = slugs.get(req.params.slug);
-      if (!rec) return res.status(410).json({ ok:false, reason:"expired" });
-      if (!payload.nonce || payload.nonce !== rec.nonce) return res.status(403).json({ ok:false, reason:"forbidden" });
-      rec.consumed = true; slugs.set(req.params.slug, rec);
-      res.json({ ok:true });
-    } catch {
-      res.status(400).json({ ok:false });
-    }
-  });
+  let body=""; req.on("data",c=>body+=c);
+  req.on("end",()=>{ try {
+    const payload=body?JSON.parse(body):{};
+    const rec=slugs.get(req.params.slug);
+    if (!rec) return res.status(410).json({ok:false});
+    if (!payload.nonce||payload.nonce!==rec.nonce) return res.status(403).json({ok:false});
+    rec.consumed=true; slugs.set(req.params.slug,rec);
+    res.json({ok:true});
+  } catch{res.status(400).json({ok:false});}});
 });
 
 // ==== SCRIPT DELIVERY ====
-// executors only (blocks browsers)
+// No key needed — directly serves obfuscated script
 app.get("/script.nmt", (req,res)=>{
-  const ua = req.headers["user-agent"] || "";
-  if (/mozilla|chrome|safari|firefox|edge/i.test(ua)) {
-    return res.status(403).send("Access Denied (browser not allowed)");
-  }
   if (!fs.existsSync(SCRIPT_FILE)) return res.status(500).send("Script missing.");
   res.type("text/plain");
   return res.sendFile(SCRIPT_FILE);
 });
 
-// Block secrets
-app.use("/secrets", (_req,res)=> res.status(403).send("Access Denied"));
-
 // ==== HOMEPAGE ====
-app.get("/", (_req,res)=>{
-  res.send(`<!doctype html><html><head><title>${BRAND}</title>
-<style>body{margin:0;font-family:system-ui;background:#0b0e12;color:#e7edf5;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center}
-h1{font-size:2em;margin-bottom:10px}
-p{color:#9fb0c6;margin:4px 0}</style></head>
-<body><h1> Welcome to ${BRAND}</h1>
-<p>Key system and script delivery server is running.</p>
-<p>Use the admin link to generate keys.</p></body></html>`);
+app.get("/", (_req, res) => {
+  res.send(`<!doctype html><html lang="en"><head>
+  <meta charset="utf-8"><title>${BRAND} Hub</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+  body{margin:0;font-family:system-ui;background:#0b0e12;color:#e7edf5;line-height:1.7}
+  header{background:linear-gradient(135deg,#1b2430,#0b0e12);padding:80px 20px;text-align:center;color:#fff}
+  header h1{font-size:3em;margin:0;color:#4da3ff}
+  header p{color:#9fb0c6}
+  nav a{margin:0 12px;color:#e7edf5;text-decoration:none;font-weight:600}
+  nav a:hover{color:#4da3ff}
+  .container{max-width:900px;margin:60px auto;padding:0 20px}
+  h2{border-left:4px solid #4da3ff;padding-left:10px}
+  footer{background:#12161d;color:#9fb0c6;text-align:center;padding:20px}
+  footer a{color:#4da3ff;text-decoration:none}
+  </style></head><body>
+  <header>
+    <h1>${BRAND} Hub</h1>
+    <p>Secure • Optimal • Free</p>
+    <nav><a href="#about">About</a><a href="#scripts">Scripts</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a></nav>
+  </header>
+  <div class="container" id="about">
+    <h2>About Us</h2><p>${BRAND} builds tools & scripts for developers, focusing on safety, optimization, and simplicity.</p>
+    <h2 id="scripts">Scripts</h2><p>Execute in Roblox with:</p><code>loadstring(game:HttpGet("https://www.lazydevs.site/script.nmt"))()</code>
+  </div>
+  <footer>&copy; ${new Date().getFullYear()} ${BRAND}. All rights reserved.</footer>
+  </body></html>`);
 });
 
-// ==== FALLBACK ====
-app.use((_req,res)=> res.status(404).send("Not Found"));
+// ==== TERMS ====
+app.get("/terms", (_req,res)=>{
+  res.send("<h1>Terms of Service</h1><p>By using our services you agree not to misuse or redistribute them. We are not liable for damages, bans, or misuse.</p>");
+});
 
+// ==== PRIVACY ====
+app.get("/privacy", (_req,res)=>{
+  res.send("<h1>Privacy Policy</h1><p>We do not collect personal data. We may log basic technical info for anti-abuse. We never sell or share data.</p>");
+});
+
+// ==== START ====
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, ()=> console.log("server running on :"+PORT));
