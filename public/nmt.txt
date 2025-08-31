@@ -1,0 +1,293 @@
+--======================================================
+-- CONFIG
+--======================================================
+local KEY_URL = "https://keysite-production.up.railway.app/public/keys.txt"
+local GET_KEY_LINK = "https://loot-link.com/s?gbTnLVac"
+local CACHE_FILE = "LazyDevs_LastKey.txt"
+
+--======================================================
+-- SERVICES
+--======================================================
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
+local Stats = game:FindFirstChild("Stats")
+
+--======================================================
+-- KEY HELPERS
+--======================================================
+local function fetchKeys()
+    local ok, body = pcall(function() return game:HttpGet(KEY_URL, true) end)
+    if not ok or not body then return {} end
+    local keys = {}
+    for line in string.gmatch(body, "[^\r\n]+") do
+        local key = string.gsub(line, "^%s*(.-)%s*$", "%1")
+        if key ~= "" then table.insert(keys, key) end
+    end
+    return keys
+end
+
+local function isValidKey(userKey)
+    if not userKey or #userKey == 0 then return false end
+    for _, k in ipairs(fetchKeys()) do
+        if userKey == k then return true end
+    end
+    return false
+end
+
+local function saveCachedKey(key)
+    if writefile then pcall(function() writefile(CACHE_FILE, key) end) end
+end
+
+local function readCachedKey()
+    if readfile and isfile and isfile(CACHE_FILE) then
+        local ok, val = pcall(function() return readfile(CACHE_FILE) end)
+        if ok and val and #val > 0 then return val end
+    end
+    return nil
+end
+
+--======================================================
+-- RAYFIELD
+--======================================================
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+assert(Rayfield, "Failed to load Rayfield")
+
+local HubWindow = Rayfield:CreateWindow({
+    Name = "Lazy Devs | No More Time Hub",
+    LoadingTitle = "Welcome Back",
+    LoadingSubtitle = "Secure • Optimal • Free",
+    Theme = "Ocean",
+    ToggleUIKeybind = Enum.KeyCode.K,
+    KeySystem = false
+})
+
+local hubLoaded, validateBusy = false, false
+local currentTheme = "Ocean"
+
+--======================================================
+-- MAP TOOLS (Recursive Search)
+--======================================================
+local function findPartRecursive(parent, keywords)
+    for _, child in ipairs(parent:GetChildren()) do
+        if child:IsA("BasePart") then
+            for _, kw in ipairs(keywords) do
+                if string.lower(child.Name):find(kw) then
+                    return child
+                end
+            end
+        end
+        local result = findPartRecursive(child, keywords)
+        if result then return result end
+    end
+    return nil
+end
+
+local function findMapTarget(which)
+    local mapsFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Maps")
+    if not mapsFolder then return nil end
+
+    for _, map in ipairs(mapsFolder:GetChildren()) do
+        local segs = map:FindFirstChild("Segments")
+        if segs then
+            if which == "Start" then
+                return findPartRecursive(segs, {"start"})
+            elseif which == "End" then
+                return findPartRecursive(segs, {"end","finish"})
+            end
+        end
+    end
+    return nil
+end
+
+local function gotoMapPart(which)
+    local part = findMapTarget(which)
+    if not part then
+        Rayfield:Notify({Title="MapTools",Content=which.." not found (Coming Soon)",Duration=4})
+        return
+    end
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = part.CFrame + Vector3.new(0,5,0)
+        Rayfield:Notify({Title="MapTools",Content="Teleported to "..which,Duration=3})
+    end
+end
+
+--======================================================
+-- PLAYER FEATURES
+--======================================================
+local AbilityManager = {
+    Player = {SpeedBoost=false,SpeedValue=16,JumpBoost=false,JumpValue=50,Noclip=false,Fly=false,FlySpeed=50},
+}
+
+-- Movement loop
+RunService.Heartbeat:Connect(function()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+
+    if AbilityManager.Player.SpeedBoost then
+        hum.WalkSpeed = AbilityManager.Player.SpeedValue
+    else
+        hum.WalkSpeed = 16
+    end
+
+    if AbilityManager.Player.JumpBoost then
+        hum.UseJumpPower = true
+        hum.JumpPower = AbilityManager.Player.JumpValue
+    else
+        hum.JumpPower = 50
+    end
+
+    if AbilityManager.Player.Noclip then
+        for _, p in pairs(char:GetDescendants()) do
+            if p:IsA("BasePart") and p.CanCollide then
+                p.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- Fly (your logic, with up/down)
+local flying = false
+local ctrl = {f=0,b=0,l=0,r=0,u=0,d=0}
+local bv, bg
+local function toggleFly(state)
+    local torso = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not torso then return end
+
+    if state and not flying then
+        flying = true
+        bg = Instance.new("BodyGyro", torso)
+        bg.P = 9e4
+        bg.maxTorque = Vector3.new(9e9,9e9,9e9)
+        bg.cframe = torso.CFrame
+
+        bv = Instance.new("BodyVelocity", torso)
+        bv.velocity = Vector3.new(0,0.1,0)
+        bv.maxForce = Vector3.new(9e9,9e9,9e9)
+
+        spawn(function()
+            while flying and torso and bv and bg do
+                RunService.Heartbeat:Wait()
+                local camCF = workspace.CurrentCamera.CFrame
+                local move = Vector3.new(ctrl.r+ctrl.l, ctrl.u+ctrl.d, ctrl.f+ctrl.b)
+                if move.Magnitude > 0 then
+                    move = camCF:VectorToWorldSpace(move)
+                    bv.velocity = move * AbilityManager.Player.FlySpeed
+                else
+                    bv.velocity = Vector3.new(0,0.1,0)
+                end
+                bg.cframe = camCF
+            end
+        end)
+    else
+        flying = false
+        if bg then bg:Destroy() bg=nil end
+        if bv then bv:Destroy() bv=nil end
+    end
+end
+
+--======================================================
+-- HUB TABS
+--======================================================
+local function loadHubTabs()
+    if hubLoaded then return end
+    hubLoaded = true
+
+    -- Info
+    local InfoTab = HubWindow:CreateTab("Information")
+    InfoTab:CreateSection("About")
+    InfoTab:CreateLabel("Lazy Devs | No More Time Hub")
+    InfoTab:CreateLabel("Secure • Optimal • Free")
+    InfoTab:CreateLabel("Version 1.0.0")
+
+    -- Map Tools
+    local MapTab = HubWindow:CreateTab("Map Tools")
+    MapTab:CreateSection("Navigation")
+    MapTab:CreateButton({Name="Teleport to Start",Callback=function() gotoMapPart("Start") end})
+    MapTab:CreateButton({Name="Teleport to End",Callback=function() gotoMapPart("End") end})
+
+    -- Player
+    local PlayerTab = HubWindow:CreateTab("Player")
+    PlayerTab:CreateSection("Movement")
+    PlayerTab:CreateToggle({Name="Speed Boost",CurrentValue=false,Callback=function(v) AbilityManager.Player.SpeedBoost=v end})
+    PlayerTab:CreateSlider({Name="Speed Value",Range={16,200},Increment=1,CurrentValue=16,Suffix="WalkSpeed",Callback=function(v) AbilityManager.Player.SpeedValue=v end})
+    PlayerTab:CreateToggle({Name="Jump Boost",CurrentValue=false,Callback=function(v) AbilityManager.Player.JumpBoost=v end})
+    PlayerTab:CreateSlider({Name="Jump Power",Range={50,200},Increment=5,CurrentValue=50,Suffix="Power",Callback=function(v) AbilityManager.Player.JumpValue=v end})
+    PlayerTab:CreateToggle({Name="Noclip",CurrentValue=false,Callback=function(v) AbilityManager.Player.Noclip=v end})
+    PlayerTab:CreateToggle({Name="Fly",CurrentValue=false,Callback=function(v) AbilityManager.Player.Fly=v; toggleFly(v) end})
+    PlayerTab:CreateSlider({Name="Fly Speed",Range={10,300},Increment=10,CurrentValue=50,Suffix="Stud/s",Callback=function(v) AbilityManager.Player.FlySpeed=v end})
+
+    -- Godmode placeholder
+    local CombatTab = HubWindow:CreateTab("Combat")
+    CombatTab:CreateSection("Protection")
+    CombatTab:CreateToggle({Name="Godmode",CurrentValue=false,Callback=function() Rayfield:Notify({Title="Godmode",Content="Coming Soon",Duration=3}) end})
+
+    -- Theme Selector
+    local SettingsTab = HubWindow:CreateTab("Settings")
+    SettingsTab:CreateSection("Theme")
+    SettingsTab:CreateDropdown({
+        Name="Theme",
+        Options={"Ocean","Dark","Light"},
+        CurrentOption={currentTheme},
+        MultipleOptions=false,
+        Callback=function(opt)
+            currentTheme=opt[1]
+            HubWindow:SetTheme(currentTheme)
+            Rayfield:Notify({Title="Theme",Content="Theme set to "..currentTheme,Duration=3})
+        end
+    })
+end
+
+--======================================================
+-- KEY TAB
+--======================================================
+local KeyTab = HubWindow:CreateTab("Key")
+KeyTab:CreateSection("Validation")
+local statusLabel = KeyTab:CreateLabel("Status: idle")
+local currentKey = readCachedKey() or ""
+KeyTab:CreateInput({Name="Enter Key",PlaceholderText="Paste your key...",CurrentValue=currentKey,Callback=function(text) currentKey=text end})
+KeyTab:CreateButton({
+    Name="Validate Key",
+    Callback=function()
+        if validateBusy or hubLoaded then return end
+        validateBusy=true
+        local key=(currentKey or ""):gsub("^%s+",""):gsub("%s+$","")
+        if key=="" then
+            Rayfield:Notify({Title="Key",Content="Please enter a key.",Duration=3})
+            validateBusy=false
+            return
+        end
+        if isValidKey(key) then
+            statusLabel:Set("Status: ✅ Valid")
+            saveCachedKey(key)
+            loadHubTabs()
+            KeyTab.TabFrame.Visible=false
+            HubWindow:SelectTab(1)
+        else
+            statusLabel:Set("Status: ❌ Invalid")
+            Rayfield:Notify({Title="Key",Content="Invalid key.",Duration=3})
+        end
+        validateBusy=false
+    end
+})
+KeyTab:CreateButton({
+    Name="Get Key",
+    Callback=function()
+        if setclipboard then
+            setclipboard(GET_KEY_LINK)
+            Rayfield:Notify({Title="Get Key",Content="Link copied to clipboard.",Duration=3})
+        else
+            Rayfield:Notify({Title="Get Key",Content=GET_KEY_LINK,Duration=5})
+        end
+    end
+})
+
+if currentKey~="" and isValidKey(currentKey) then
+    statusLabel:Set("Status: Cached key valid")
+    loadHubTabs()
+    KeyTab.TabFrame.Visible=false
+    HubWindow:SelectTab(1)
+end
