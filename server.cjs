@@ -4,19 +4,17 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 
-const __dirname = __dirname; // in CJS this already exists
-
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ==== CONFIG ====
-const ADMIN_PATH  = process.env.ADMIN_PATH || "/example";
-const SLUG_TTL_MS = 5 * 60 * 1000;
+const ADMIN_PATH  = process.env.ADMIN_PATH || "/example";  // secret admin entry
+const SLUG_TTL_MS = 5 * 60 * 1000;                        // slug valid for 5 min
 const HOST_TITLE  = "Lazy Devs | Key Delivery";
 const BRAND       = "Lazy Devs";
 
-// KEYS
+// ==== KEYS ====
 const KEYS_FILE = path.join(__dirname, "keys.txt");
 if (!fs.existsSync(KEYS_FILE)) {
   console.error("Missing keys.txt");
@@ -25,10 +23,11 @@ if (!fs.existsSync(KEYS_FILE)) {
 let keyPool = fs.readFileSync(KEYS_FILE, "utf8")
   .split(/\r?\n/).map(s => s.trim()).filter(Boolean);
 
-// slug store
+// ==== SLUG STORAGE ====
 const slugs = new Map();
 const randomSlug  = (len=10)=> crypto.randomBytes(len).toString("base64url").slice(0,len);
 const randomNonce = ()=> crypto.randomBytes(16).toString("base64url");
+
 function takeRandomKey(){
   if (keyPool.length===0) return null;
   const i = Math.floor(Math.random()*keyPool.length);
@@ -36,6 +35,8 @@ function takeRandomKey(){
   keyPool.splice(i,1);
   return key;
 }
+
+// cleanup expired slugs
 setInterval(()=>{
   const now=Date.now();
   for (const [slug,rec] of slugs.entries()){
@@ -44,6 +45,7 @@ setInterval(()=>{
 }, 60000);
 
 // ==== ADMIN ENTRY ====
+// Visiting this generates a new one-time key slug
 app.get(ADMIN_PATH, (req,res)=>{
   const key = takeRandomKey();
   if (!key) return res.status(503).send("No keys available.");
@@ -68,17 +70,23 @@ app.get("/k/:slug", (req,res)=>{
   if (!nonce || nonce !== rec.nonce) return res.status(403).send("Forbidden");
   if (Date.now() > rec.expiresAt) { slugs.delete(slug); return res.status(410).sendFile(expiredHtml); }
 
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${HOST_TITLE}</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0e12;color:#e7edf5;font-family:system-ui}
+  // return branded page with the key
+  res.status(200).send(`<!doctype html>
+<html><head><meta charset="utf-8"><title>${HOST_TITLE}</title>
+<style>
+body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0e12;color:#e7edf5;font-family:system-ui}
 .card{background:#12161d;padding:36px;border-radius:16px;border:1px solid #212833;max-width:460px;width:100%;text-align:center}
 h1{margin:0 0 6px;font-size:24px}
 code{display:block;background:#0e131a;border:1px solid #212833;padding:14px;border-radius:10px;margin-bottom:16px}
 button{background:linear-gradient(180deg,#4da3ff,#215aa6);border:none;color:#fff;padding:12px 18px;font-size:15px;font-weight:600;border-radius:10px;cursor:pointer}
-.msg{margin-top:14px;color:#9fb0c6;font-size:13px}</style></head>
-<body><div class="card"><h1>${BRAND}</h1><h2>One-Time Key</h2>
-<code id="keyBox">${rec.key}</code><button id="copyBtn">Copy Key</button>
-<div class="msg" id="msg">Copy the key. This page will expire immediately after.</div></div>
+.msg{margin-top:14px;color:#9fb0c6;font-size:13px}
+</style></head>
+<body>
+<div class="card"><h1>${BRAND}</h1><h2>One-Time Key</h2>
+<code id="keyBox">${rec.key}</code>
+<button id="copyBtn">Copy Key</button>
+<div class="msg" id="msg">Copy the key. This page will expire immediately after.</div>
+</div>
 <script>
 const slug=${JSON.stringify(slug)}, nonce=${JSON.stringify(rec.nonce)};
 const msgEl=document.getElementById('msg'); const btn=document.getElementById('copyBtn');
@@ -86,11 +94,11 @@ const key=document.getElementById('keyBox').textContent.trim();
 async function consume(){try{await fetch('/k/'+encodeURIComponent(slug)+'/consume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nonce})});}catch(e){}}
 btn.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(key);btn.disabled=true;msgEl.textContent='Key copied. This page is now invalid.';await consume();setTimeout(()=>{window.location.replace('/public/expired.html');},900);}catch(e){msgEl.textContent='Copy failed. Please copy manually.'}});
 window.addEventListener('beforeunload',consume);
-</script></body></html>`;
-  res.status(200).send(html);
+</script>
+</body></html>`);
 });
 
-// ==== CONSUME ====
+// ==== CONSUME (invalidate slug) ====
 app.post("/k/:slug/consume",(req,res)=>{
   let body = "";
   req.on("data", chunk => body += chunk);
@@ -109,7 +117,7 @@ app.post("/k/:slug/consume",(req,res)=>{
 });
 
 // ==== SCRIPT DELIVERY ====
-// expects: GET /script?key=XXXX
+// GET /script?key=XXXX
 app.get("/script", (req,res)=>{
   const { key } = req.query;
   if (!key || !keyPool.includes(key)) return res.status(403).send("Access Denied");
@@ -129,5 +137,6 @@ app.use("/secrets", (_req,res)=> res.status(403).send("Access Denied"));
 app.get("/", (_req,res)=> res.status(404).send("Not Found"));
 app.use((_req,res)=> res.status(404).send("Not Found"));
 
+// ==== START SERVER ====
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, ()=> console.log("server running on :"+PORT));
