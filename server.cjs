@@ -1,4 +1,3 @@
-// server.cjs
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
@@ -82,6 +81,75 @@ app.get("/", (_req, res) => {
   </footer>
 </body>
 </html>`;
+  res.status(200).send(html);
+});
+
+// ==== VANITY LINK ====
+// Redirect to real key page
+app.get("/sealife-just-do-it", (req, res) => {
+  res.redirect("/getkey");
+});
+
+// ==== GET KEY PAGE ====
+app.get("/getkey", (req, res) => {
+  const keys = loadKeys();
+
+  if (keys.length === 0) {
+    return res.status(404).send(`
+      <h1>No More Keys Available</h1>
+      <p>Come back later or join our Discord.</p>
+    `);
+  }
+
+  const randomKey = keys[Math.floor(Math.random() * keys.length)];
+
+  const html = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Get Key | ${BRAND}</title>
+    <style>
+      body {
+        background-color: #0f172a;
+        color: #e2e8f0;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        text-align: center;
+      }
+      h1 {
+        font-size: 36px;
+        margin-bottom: 20px;
+        color: #38bdf8;
+      }
+      .key-box {
+        background: #1e293b;
+        padding: 20px 40px;
+        border-radius: 12px;
+        font-size: 18px;
+        border: 1px solid #334155;
+        word-break: break-all;
+      }
+      p {
+        margin-top: 20px;
+        color: #cbd5e1;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Your Key</h1>
+    <div class="key-box">${randomKey}</div>
+    <p>Use this key in the loader to unlock your access.</p>
+  </body>
+  </html>
+  `;
+
   res.status(200).send(html);
 });
 
