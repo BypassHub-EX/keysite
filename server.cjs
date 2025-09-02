@@ -10,6 +10,20 @@ app.use(express.urlencoded({ extended: true }));
 // ==== CONFIG ====
 const BRAND = "Lazy Devs";
 const SCRIPT_FILE = path.join(__dirname, "secrets", "nmt.scripts");
+const KEYS_FILE = path.join(__dirname, "public", "keys.txt");
+
+// ==== HELPERS ====
+function loadKeys() {
+  if (!fs.existsSync(KEYS_FILE)) return [];
+  return fs.readFileSync(KEYS_FILE, "utf8")
+    .split(/\r?\n/)
+    .map(k => k.trim())
+    .filter(k => k.length > 0);
+}
+
+function saveKeys(keys) {
+  fs.writeFileSync(KEYS_FILE, keys.join("\n"), "utf8");
+}
 
 // ==== HOMEPAGE ====
 app.get("/", (_req, res) => {
@@ -29,6 +43,7 @@ app.get("/", (_req, res) => {
     h2 { border-left:6px solid #1a73e8; padding-left:10px; }
     ul { line-height:1.8; }
     footer { text-align:center; padding:20px; color:#9ca3af; font-size:14px; border-top:1px solid #1f2937; }
+    code { background:#1e293b; padding:3px 6px; border-radius:4px; }
   </style>
 </head>
 <body>
@@ -39,28 +54,27 @@ app.get("/", (_req, res) => {
   <main>
     <section>
       <h2>About Us</h2>
-      <p>Lazy Devs is dedicated to delivering premium Roblox utilities through the <b>No More Time Hub</b>. 
+      <p>Lazy Devs delivers premium Roblox utilities through the <b>No More Time Hub</b>.
       Our focus: seamless performance, professional design, and secure execution.</p>
     </section>
     <section>
       <h2>Scripts</h2>
       <ul>
-        <li>Player Tools (Speed, Jump, Fly, Noclip)</li>
+        <li>Player Tools (Speed, Jump, Fly, Noclip, Infinite Jump)</li>
         <li>Map Tools (Teleport to Start/End)</li>
-        <li>Protection (Godmode - Coming Soon)</li>
+        <li>Protection (Shield, AntiVoid, Fling, Auto-Carry)</li>
       </ul>
       <p>Use our loader:</p>
-      <code>loadstring(game:HttpGet("https://www.lazydevs.site/script.nmt"))()</code>
+      <code>loadstring(game:HttpGet("https://www.lazydevs.site/script.nmt?key=YOURKEY"))()</code>
     </section>
     <section>
       <h2>Terms of Service</h2>
       <p>By using Lazy Devs services, you agree not to redistribute, resell, or exploit our code outside
-      its intended educational/utility purposes. We may suspend access at any time if misuse is detected.</p>
+      its intended educational/utility purposes. Access may be revoked in case of abuse.</p>
     </section>
     <section>
       <h2>Privacy Policy</h2>
-      <p>We do not collect personal data. Basic anonymous logs may be used for performance monitoring 
-      and abuse prevention. No sensitive or identifying data is stored.</p>
+      <p>No personal data is collected. Anonymous logs may be used for monitoring and abuse prevention.</p>
     </section>
   </main>
   <footer>
@@ -71,17 +85,59 @@ app.get("/", (_req, res) => {
   res.status(200).send(html);
 });
 
+// ==== KEY VALIDATION ====
+// public file
+app.get("/public/keys.txt", (req, res) => {
+  if (!fs.existsSync(KEYS_FILE)) return res.status(404).send("No keys file.");
+  res.type("text/plain");
+  res.sendFile(KEYS_FILE);
+});
+
 // ==== SCRIPT DELIVERY ====
-// always serve obfuscated hub script, no key
+// requires ?key= param
 app.get("/script.nmt", (req, res) => {
-  if (!fs.existsSync(SCRIPT_FILE)) {
-    return res.status(500).send("Script missing.");
-  }
+  const key = req.query.key;
+  if (!key) return res.status(401).send("Missing key.");
+
+  const keys = loadKeys();
+  if (!keys.includes(key)) return res.status(403).send("Invalid key.");
+
+  if (!fs.existsSync(SCRIPT_FILE)) return res.status(500).send("Script missing.");
   res.type("text/plain");
   return res.sendFile(SCRIPT_FILE);
 });
 
-// ==== BLOCK FOLDER ACCESS ====
+// ==== ADMIN ENDPOINTS ====
+// very basic, secure behind a static admin key
+const ADMIN_KEY = process.env.ADMIN_KEY || "changeme123";
+
+app.get("/admin/keys", (req, res) => {
+  if (req.query.admin !== ADMIN_KEY) return res.status(403).send("Forbidden");
+  res.json({ keys: loadKeys() });
+});
+
+app.post("/admin/keys/add", (req, res) => {
+  if (req.query.admin !== ADMIN_KEY) return res.status(403).send("Forbidden");
+  const { key } = req.body;
+  if (!key) return res.status(400).send("Missing key.");
+  const keys = loadKeys();
+  if (keys.includes(key)) return res.status(400).send("Key already exists.");
+  keys.push(key);
+  saveKeys(keys);
+  res.json({ message: "Key added", key });
+});
+
+app.post("/admin/keys/remove", (req, res) => {
+  if (req.query.admin !== ADMIN_KEY) return res.status(403).send("Forbidden");
+  const { key } = req.body;
+  if (!key) return res.status(400).send("Missing key.");
+  let keys = loadKeys();
+  keys = keys.filter(k => k !== key);
+  saveKeys(keys);
+  res.json({ message: "Key removed", key });
+});
+
+// ==== BLOCK SECRET FOLDER ====
 app.use("/secrets", (_req, res) => res.status(403).send("Access Denied"));
 
 // ==== FALLBACK ====
