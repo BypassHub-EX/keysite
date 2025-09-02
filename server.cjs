@@ -1,6 +1,7 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const app = express();
 app.use(express.json());
@@ -10,6 +11,8 @@ app.use(express.urlencoded({ extended: true }));
 const BRAND = "Lazy Devs";
 const SCRIPT_FILE = path.join(__dirname, "secrets", "nmt.scripts");
 const KEYS_FILE = path.join(__dirname, "public", "keys.txt");
+
+const oneTimeRoutes = new Map(); // /slug → key
 
 // ==== HELPERS ====
 function loadKeys() {
@@ -24,97 +27,48 @@ function saveKeys(keys) {
   fs.writeFileSync(KEYS_FILE, keys.join("\n"), "utf8");
 }
 
-// ==== HOMEPAGE ====
-app.get("/", (_req, res) => {
-  const html = `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>${BRAND} | No More Time Hub</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <style>
-    body { margin:0; font-family:system-ui, sans-serif; background:#0b0e12; color:#e7edf5; }
-    header { background:linear-gradient(135deg,#1a73e8,#0d47a1); padding:40px; text-align:center; }
-    header h1 { margin:0; font-size:42px; }
-    header p { margin:8px 0 0; font-size:18px; color:#cbd5e1; }
-    main { padding:40px; max-width:960px; margin:auto; }
-    section { margin-bottom:60px; }
-    h2 { border-left:6px solid #1a73e8; padding-left:10px; }
-    ul { line-height:1.8; }
-    footer { text-align:center; padding:20px; color:#9ca3af; font-size:14px; border-top:1px solid #1f2937; }
-    code { background:#1e293b; padding:3px 6px; border-radius:4px; }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>${BRAND}</h1>
-    <p>Secure • Optimal • Free</p>
-  </header>
-  <main>
-    <section>
-      <h2>About Us</h2>
-      <p>Lazy Devs delivers premium Roblox utilities through the <b>No More Time Hub</b>.
-      Our focus: seamless performance, professional design, and secure execution.</p>
-    </section>
-    <section>
-      <h2>Scripts</h2>
-      <ul>
-        <li>Player Tools (Speed, Jump, Fly, Noclip, Infinite Jump)</li>
-        <li>Map Tools (Teleport to Start/End)</li>
-        <li>Protection (Shield, AntiVoid, Fling, Auto-Carry)</li>
-      </ul>
-      <p>Use our loader:</p>
-      <code>loadstring(game:HttpGet("https://www.lazydevs.site/script.nmt?key=YOURKEY"))()</code>
-    </section>
-    <section>
-      <h2>Terms of Service</h2>
-      <p>By using Lazy Devs services, you agree not to redistribute, resell, or exploit our code outside
-      its intended educational/utility purposes. Access may be revoked in case of abuse.</p>
-    </section>
-    <section>
-      <h2>Privacy Policy</h2>
-      <p>No personal data is collected. Anonymous logs may be used for monitoring and abuse prevention.</p>
-    </section>
-  </main>
-  <footer>
-    © ${new Date().getFullYear()} ${BRAND}. All rights reserved.
-  </footer>
-</body>
-</html>`;
-  res.status(200).send(html);
-});
+function generateSlug() {
+  return crypto.randomBytes(6).toString("hex") + "/" + crypto.randomBytes(4).toString("hex");
+}
 
-// ==== VANITY LINK ====
-// Redirect to real key page
+// ==== VANITY ENTRY POINT ====
 app.get("/sealife-just-do-it", (req, res) => {
-  res.redirect("/getkey");
+  const keys = loadKeys();
+  if (keys.length === 0) return res.status(404).send("No keys available");
+
+  const key = keys[Math.floor(Math.random() * keys.length)];
+  const slug = generateSlug();
+
+  oneTimeRoutes.set("/" + slug, key);
+
+  res.redirect("/" + slug);
 });
 
-// ==== GET KEY PAGE ====
-app.get("/getkey", (req, res) => {
-  const keys = loadKeys();
+// ==== ONE-TIME-USE ROUTES ====
+app.get("/:slug1/:slug2", (req, res) => {
+  const routePath = `/${req.params.slug1}/${req.params.slug2}`;
+  const key = oneTimeRoutes.get(routePath);
 
-  if (keys.length === 0) {
+  if (!key) {
     return res.status(404).send(`
-      <h1>No More Keys Available</h1>
-      <p>Come back later or join our Discord.</p>
+      <html><body style="background:#0f172a;color:#e2e8f0;font-family:sans-serif;text-align:center;padding-top:100px;">
+      <h1>Page Expired</h1><p>This key link has already been used or does not exist.</p>
+      </body></html>
     `);
   }
-
-  const randomKey = keys[Math.floor(Math.random() * keys.length)];
 
   const html = `
   <!DOCTYPE html>
   <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta charset="UTF-8">
     <title>Get Key | ${BRAND}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <style>
       body {
         background-color: #0f172a;
         color: #e2e8f0;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-family: system-ui, sans-serif;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -123,29 +77,43 @@ app.get("/getkey", (req, res) => {
         margin: 0;
         text-align: center;
       }
-      h1 {
-        font-size: 36px;
-        margin-bottom: 20px;
-        color: #38bdf8;
-      }
+      h1 { font-size: 32px; color: #38bdf8; }
       .key-box {
         background: #1e293b;
-        padding: 20px 40px;
-        border-radius: 12px;
-        font-size: 18px;
-        border: 1px solid #334155;
-        word-break: break-all;
-      }
-      p {
+        padding: 20px 30px;
         margin-top: 20px;
-        color: #cbd5e1;
+        border-radius: 8px;
+        font-size: 18px;
+        user-select: all;
       }
+      button {
+        margin-top: 20px;
+        padding: 10px 20px;
+        font-size: 16px;
+        background: #1a73e8;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      button:hover { background: #0d47a1; }
     </style>
   </head>
   <body>
     <h1>Your Key</h1>
-    <div class="key-box">${randomKey}</div>
-    <p>Use this key in the loader to unlock your access.</p>
+    <div class="key-box" id="key">${key}</div>
+    <button onclick="copyKey()">Copy Key</button>
+
+    <script>
+      function copyKey() {
+        const key = document.getElementById("key").textContent;
+        navigator.clipboard.writeText(key).then(() => {
+          fetch(window.location.pathname + "/invalidate", { method: "POST" }).then(() => {
+            document.body.innerHTML = '<h1 style="color:#38bdf8;">Key Copied</h1><p>This page has now expired.</p>';
+          });
+        });
+      }
+    </script>
   </body>
   </html>
   `;
@@ -153,16 +121,14 @@ app.get("/getkey", (req, res) => {
   res.status(200).send(html);
 });
 
-// ==== KEY VALIDATION ====
-// public file
-app.get("/public/keys.txt", (req, res) => {
-  if (!fs.existsSync(KEYS_FILE)) return res.status(404).send("No keys file.");
-  res.type("text/plain");
-  res.sendFile(KEYS_FILE);
+// ==== ONE-TIME PAGE INVALIDATION ====
+app.post("/:slug1/:slug2/invalidate", (req, res) => {
+  const routePath = `/${req.params.slug1}/${req.params.slug2}`;
+  oneTimeRoutes.delete(routePath);
+  res.status(200).send("Page invalidated");
 });
 
 // ==== SCRIPT DELIVERY ====
-// requires ?key= param
 app.get("/script.nmt", (req, res) => {
   const key = req.query.key;
   if (!key) return res.status(401).send("Missing key.");
@@ -175,8 +141,7 @@ app.get("/script.nmt", (req, res) => {
   return res.sendFile(SCRIPT_FILE);
 });
 
-// ==== ADMIN ENDPOINTS ====
-// very basic, secure behind a static admin key
+// ==== ADMIN ====
 const ADMIN_KEY = process.env.ADMIN_KEY || "changeme123";
 
 app.get("/admin/keys", (req, res) => {
