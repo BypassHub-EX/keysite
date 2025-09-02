@@ -68,20 +68,17 @@ app.post("/verify-discord", async (req, res) => {
 
   if (!discordId) return res.status(400).send("Missing Discord ID");
 
-  // Prevent multiple keys from same IP
-  for (const data of Object.values(bindings)) {
-    if (data.ip === ip) {
+  // Check if already used (by discord or ip)
+  for (const [k, data] of Object.entries(bindings)) {
+    if (data.ip === ip || data.discord === discordId) {
       return res.status(403).send(`
         <html><body style="background:#0f172a;color:#e2e8f0;font-family:sans-serif;text-align:center;padding-top:100px;">
-        <h1>One Key Per IP</h1><p>You already claimed a key from this IP.</p>
+        <h1>Access Denied</h1><p>You’ve already claimed your access key.</p>
         </body></html>
       `);
     }
   }
 
-  // Skip actual Discord membership check for now
-
-  // Assign key
   const keys = loadKeys();
   if (keys.length === 0) return res.status(404).send("No keys available.");
 
@@ -92,7 +89,7 @@ app.post("/verify-discord", async (req, res) => {
   const slug = generateSlug();
   oneTimeRoutes.set("/" + slug, key);
 
-  sendWebhookLog(`Key claimed by <@${discordId}> | IP: \`${ip}\` | Key: \`${key}\``);
+  sendWebhookLog(`🔑 Key generated for <@${discordId}> | Key: \`${key}\``);
 
   return res.redirect("/" + slug);
 });
@@ -141,21 +138,21 @@ app.get("/:slug1/:slug2", (req, res) => {
   res.status(200).send(html);
 });
 
-// ==== POST: Invalidate Page ====
+// ==== POST: Invalidate Key Page ====
 app.post("/:slug1/:slug2/invalidate", (req, res) => {
   const route = `/${req.params.slug1}/${req.params.slug2}`;
   oneTimeRoutes.delete(route);
   res.status(200).send("Invalidated");
 });
 
-// ==== GET: Script Loader ====
+// ==== GET: Load Script If Valid ====
 app.get("/script.nmt", (req, res) => {
   const key = req.query.key;
   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
   if (!key) return res.status(401).send("Missing key.");
   if (!bindings[key]) return res.status(403).send("Invalid key.");
-  if (bindings[key].ip !== ip) return res.status(403).send("IP not matched.");
+  if (bindings[key].ip !== ip) return res.status(403).send("Access restricted to the original device.");
 
   if (!fs.existsSync(SCRIPT_FILE)) return res.status(500).send("Script missing.");
   res.type("text/plain");
