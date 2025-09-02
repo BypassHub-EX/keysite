@@ -2,17 +2,17 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const fetch = require("node-fetch");
-
-// === CONFIG ===
-const SCRIPT_FILE = path.join(__dirname, "secrets", "nmt.scripts");
-const KEYS_FILE = path.join(__dirname, "public", "keys.txt");
-const BINDINGS_FILE = path.join(__dirname, "keyBindings.json");
-const WEBHOOK_URL = "https://discord.com/api/webhooks/1412375650811252747/DaLBISW_StaxXagr6uNooBW6CQfCaY8NgsOb13AMaqGkpRBVzYumol657iGuj0k5SRTo";
+const fetch = require("node-fetch"); // Compatible with v2.6.7
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ==== CONFIG ====
+const SCRIPT_FILE = path.join(__dirname, "secrets", "nmt.scripts");
+const KEYS_FILE = path.join(__dirname, "public", "keys.txt");
+const BINDINGS_FILE = path.join(__dirname, "keyBindings.json");
+const WEBHOOK_URL = "https://discord.com/api/webhooks/1412375650811252747/DaLBISW_StaxXagr6uNooBW6CQfCaY8NgsOb13AMaqGkpRBVzYumol657iGuj0k5SRTo";
 
 const oneTimeRoutes = new Map(); // slug => key
 const bindings = fs.existsSync(BINDINGS_FILE)
@@ -35,19 +35,15 @@ function generateSlug() {
   return crypto.randomBytes(6).toString("hex") + "/" + crypto.randomBytes(4).toString("hex");
 }
 
-async function sendWebhookLog(message) {
-  try {
-    await fetch(WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: message })
-    });
-  } catch (err) {
-    console.error("Webhook Error:", err);
-  }
+function sendWebhookLog(message) {
+  fetch(WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: message })
+  }).catch(console.error);
 }
 
-// === GET: Show Discord ID Form ===
+// ==== GET: Show Discord ID Form ====
 app.get("/sealife-just-do-it", (_req, res) => {
   res.send(`
     <html><head><title>Verify Discord</title></head>
@@ -65,18 +61,19 @@ app.get("/sealife-just-do-it", (_req, res) => {
   `);
 });
 
-// === POST: Verify + Assign Key ===
+// ==== POST: Verify Discord ID + Assign Key ====
 app.post("/verify-discord", async (req, res) => {
   const discordId = req.body.discordId;
   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
   if (!discordId) return res.status(400).send("Missing Discord ID");
 
+  // Prevent multiple keys from same IP
   for (const data of Object.values(bindings)) {
     if (data.ip === ip) {
       return res.status(403).send(`
         <html><body style="background:#0f172a;color:#e2e8f0;font-family:sans-serif;text-align:center;padding-top:100px;">
-        <h1>One Key Per Person</h1><p>You already claimed your access key.</p>
+        <h1>One Key Per IP</h1><p>You already claimed a key.</p>
         </body></html>
       `);
     }
@@ -92,12 +89,12 @@ app.post("/verify-discord", async (req, res) => {
   const slug = generateSlug();
   oneTimeRoutes.set("/" + slug, key);
 
-  await sendWebhookLog(`🔑 Key claimed by <@${discordId}> → \`${key}\``);
+  sendWebhookLog(`🎟️ New Key for <@${discordId}>\n🔑 Key: \`${key}\`\n🌐 IP: \`${ip}\``);
 
   return res.redirect("/" + slug);
 });
 
-// === GET: One-Time Key Page ===
+// ==== GET: One-Time Key Page ====
 app.get("/:slug1/:slug2", (req, res) => {
   const route = `/${req.params.slug1}/${req.params.slug2}`;
   const key = oneTimeRoutes.get(route);
@@ -141,35 +138,34 @@ app.get("/:slug1/:slug2", (req, res) => {
   res.status(200).send(html);
 });
 
-// === POST: Invalidate Key Page ===
+// ==== POST: Invalidate Page ====
 app.post("/:slug1/:slug2/invalidate", (req, res) => {
   const route = `/${req.params.slug1}/${req.params.slug2}`;
   oneTimeRoutes.delete(route);
   res.status(200).send("Invalidated");
 });
 
-// === GET: Script Download ===
+// ==== GET: Script Loader ====
 app.get("/script.nmt", (req, res) => {
   const key = req.query.key;
   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
   if (!key) return res.status(401).send("Missing key.");
   if (!bindings[key]) return res.status(403).send("Invalid key.");
-  if (bindings[key].ip !== ip) return res.status(403).send("Key not matched to your IP.");
+  if (bindings[key].ip !== ip) return res.status(403).send("IP not matched.");
 
   if (!fs.existsSync(SCRIPT_FILE)) return res.status(500).send("Script missing.");
   res.type("text/plain");
   return res.sendFile(SCRIPT_FILE);
 });
 
-// === DENY Access to Secret Folder ===
+// ==== BLOCK SECRET FOLDER ====
 app.use("/secrets", (_req, res) => res.status(403).send("Access Denied"));
 
-// === Fallback 404 ===
+// ==== FALLBACK ====
 app.use((_req, res) => res.status(404).send("Not Found"));
 
-// === START SERVER ===
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
