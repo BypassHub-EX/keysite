@@ -8,10 +8,12 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ==== CONFIG ====
 const SCRIPT_FILE_PROTECTED = path.join(__dirname, "secrets", "nmt.scripts");
 const SCRIPT_FILE_PUBLIC = path.join(__dirname, "public", "nmt.script");
 const KEYS_FILE = path.join(__dirname, "public", "keys.txt");
 const BINDINGS_FILE = path.join(__dirname, "keyBindings.json");
+const POLL_FILE = path.join(__dirname, "pollVotes.json");
 const WEBHOOK_URL = "https://discord.com/api/webhooks/1412375650811252747/DaLBISW_StaxXagr6uNooBW6CQfCaY8NgsOb13AMaqGkpRBVzYumol657iGuj0k5SRTo";
 
 const oneTimeRoutes = new Map();
@@ -19,6 +21,7 @@ const bindings = fs.existsSync(BINDINGS_FILE)
   ? JSON.parse(fs.readFileSync(BINDINGS_FILE))
   : {};
 
+// ==== HELPERS ====
 function saveBindings() {
   fs.writeFileSync(BINDINGS_FILE, JSON.stringify(bindings, null, 2));
 }
@@ -43,6 +46,16 @@ function sendWebhookLog(message) {
   }).catch(console.error);
 }
 
+function loadPolls() {
+  if (!fs.existsSync(POLL_FILE)) return {};
+  try { return JSON.parse(fs.readFileSync(POLL_FILE, "utf8")); }
+  catch { return {}; }
+}
+function savePolls(data) {
+  fs.writeFileSync(POLL_FILE, JSON.stringify(data, null, 2));
+}
+
+// ==== KEY CLAIM ====
 app.get("/sealife-just-do-it", (_req, res) => {
   res.send(`
     <html><head><title>Verify Discord</title></head>
@@ -140,27 +153,62 @@ app.post("/:slug1/:slug2/invalidate", (req, res) => {
   res.status(200).send("Invalidated");
 });
 
-// === NEW: /script.nmt → serve secrets/nmt.scripts PUBLICLY ===
+// ==== SCRIPT DELIVERY ====
 app.get("/script.nmt", (req, res) => {
   if (!fs.existsSync(SCRIPT_FILE_PROTECTED)) return res.status(500).send("Script not found.");
   res.type("text/plain").sendFile(SCRIPT_FILE_PROTECTED);
 });
-
-// === NEW: /nmt.script → serve public version ===
 app.get("/nmt.script", (req, res) => {
   if (!fs.existsSync(SCRIPT_FILE_PUBLIC)) return res.status(500).send("Script not found.");
   res.type("text/plain").sendFile(SCRIPT_FILE_PUBLIC);
 });
 
-// === Expose keys.txt as public ===
+// ==== KEYS FILE ====
 app.use("/public", express.static(path.join(__dirname, "public")));
 
-// === BLOCK secret folder ===
+// ==== POLL ENDPOINT ====
+app.post("/vote", (req, res) => {
+  const { pollId, robloxUser, discordUser, vote } = req.body;
+  if (!pollId || !robloxUser || !discordUser || !vote) {
+    return res.status(400).send("Missing fields.");
+  }
+
+  const polls = loadPolls();
+  if (!polls[pollId]) polls[pollId] = {};
+
+  if (polls[pollId][robloxUser]) {
+    return res.status(403).send("You already voted in this poll.");
+  }
+
+  polls[pollId][robloxUser] = { discord: discordUser, vote };
+  savePolls(polls);
+
+  const counts = {};
+  for (const u of Object.values(polls[pollId])) {
+    counts[u.vote] = (counts[u.vote] || 0) + 1;
+  }
+
+  let resultMsg = "Poll Vote\n\n";
+  resultMsg += `Roblox User: ${robloxUser}\n`;
+  resultMsg += `Discord User: <@${discordUser}>\n`;
+  resultMsg += `Vote For: ${vote}\n\n`;
+  resultMsg += "Current Votes:\n";
+  for (const [opt, count] of Object.entries(counts)) {
+    resultMsg += `${opt} (${count} votes)\n`;
+  }
+
+  sendWebhookLog(resultMsg);
+
+  res.json({ success: true, message: "Vote recorded." });
+});
+
+// ==== BLOCK SECRET FOLDER ====
 app.use("/secrets", (_req, res) => res.status(403).send("Access Denied"));
 
-// === Fallback ===
+// ==== FALLBACK ====
 app.use((_req, res) => res.status(404).send("Not Found"));
 
+// ==== START ====
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
