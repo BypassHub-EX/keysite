@@ -2,19 +2,27 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const fetch = require("node-fetch");
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ==== CONFIG ====
-const BRAND = "Lazy Devs";
 const SCRIPT_FILE = path.join(__dirname, "secrets", "nmt.scripts");
 const KEYS_FILE = path.join(__dirname, "public", "keys.txt");
+const BINDINGS_FILE = path.join(__dirname, "keyBindings.json");
+const WEBHOOK_URL = "https://discord.com/api/webhooks/1412375650811252747/DaLBISW_StaxXagr6uNooBW6CQfCaY8NgsOb13AMaqGkpRBVzYumol657iGuj0k5SRTo";
 
-const oneTimeRoutes = new Map(); // /slug → key
+const oneTimeRoutes = new Map(); // slug => key
+const bindings = fs.existsSync(BINDINGS_FILE)
+  ? JSON.parse(fs.readFileSync(BINDINGS_FILE))
+  : {};
 
-// ==== HELPERS ====
+function saveBindings() {
+  fs.writeFileSync(BINDINGS_FILE, JSON.stringify(bindings, null, 2));
+}
+
 function loadKeys() {
   if (!fs.existsSync(KEYS_FILE)) return [];
   return fs.readFileSync(KEYS_FILE, "utf8")
@@ -23,93 +31,106 @@ function loadKeys() {
     .filter(k => k.length > 0);
 }
 
-function saveKeys(keys) {
-  fs.writeFileSync(KEYS_FILE, keys.join("\n"), "utf8");
-}
-
 function generateSlug() {
   return crypto.randomBytes(6).toString("hex") + "/" + crypto.randomBytes(4).toString("hex");
 }
 
-// ==== VANITY ENTRY POINT ====
-app.get("/sealife-just-do-it", (req, res) => {
-  const keys = loadKeys();
-  if (keys.length === 0) return res.status(404).send("No keys available");
+function sendWebhookLog(message) {
+  fetch(WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: message })
+  }).catch(console.error);
+}
 
-  const key = keys[Math.floor(Math.random() * keys.length)];
-  const slug = generateSlug();
-
-  oneTimeRoutes.set("/" + slug, key);
-
-  res.redirect("/" + slug);
+// ==== GET: Show Discord ID Form ====
+app.get("/sealife-just-do-it", (_req, res) => {
+  res.send(`
+    <html><head><title>Verify Discord</title></head>
+    <body style="background:#0f172a;color:#e2e8f0;font-family:sans-serif;text-align:center;padding-top:100px;">
+      <h1>Enter Your Discord ID</h1>
+      <form method="POST" action="/verify-discord">
+        <input type="text" name="discordId" placeholder="e.g. 105483920..." required
+         style="padding:10px;font-size:16px;width:300px;border-radius:6px;border:1px solid #555;" />
+        <br><br>
+        <button type="submit"
+         style="padding:10px 20px;font-size:16px;background:#1a73e8;color:white;border:none;border-radius:6px;">Continue</button>
+      </form>
+    </body>
+    </html>
+  `);
 });
 
-// ==== ONE-TIME-USE ROUTES ====
-app.get("/:slug1/:slug2", (req, res) => {
-  const routePath = `/${req.params.slug1}/${req.params.slug2}`;
-  const key = oneTimeRoutes.get(routePath);
+// ==== POST: Verify Discord ID + Assign Key ====
+app.post("/verify-discord", async (req, res) => {
+  const discordId = req.body.discordId;
+  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
+  if (!discordId) return res.status(400).send("Missing Discord ID");
+
+  // Prevent multiple keys from same IP
+  for (const data of Object.values(bindings)) {
+    if (data.ip === ip) {
+      return res.status(403).send(`
+        <html><body style="background:#0f172a;color:#e2e8f0;font-family:sans-serif;text-align:center;padding-top:100px;">
+        <h1>One Key Per IP</h1><p>You already claimed a key from this IP.</p>
+        </body></html>
+      `);
+    }
+  }
+
+  // Skip actual Discord membership check for now
+
+  // Assign key
+  const keys = loadKeys();
+  if (keys.length === 0) return res.status(404).send("No keys available.");
+
+  const key = keys[Math.floor(Math.random() * keys.length)];
+  bindings[key] = { ip, discord: discordId };
+  saveBindings();
+
+  const slug = generateSlug();
+  oneTimeRoutes.set("/" + slug, key);
+
+  sendWebhookLog(`Key claimed by <@${discordId}> | IP: \`${ip}\` | Key: \`${key}\``);
+
+  return res.redirect("/" + slug);
+});
+
+// ==== GET: One-Time Key Page ====
+app.get("/:slug1/:slug2", (req, res) => {
+  const route = `/${req.params.slug1}/${req.params.slug2}`;
+  const key = oneTimeRoutes.get(route);
   if (!key) {
     return res.status(404).send(`
       <html><body style="background:#0f172a;color:#e2e8f0;font-family:sans-serif;text-align:center;padding-top:100px;">
-      <h1>Page Expired</h1><p>This key link has already been used or does not exist.</p>
+      <h1>Page Expired</h1><p>This key page has been used or is invalid.</p>
       </body></html>
     `);
   }
 
   const html = `
-  <!DOCTYPE html>
-  <html lang="en">
+  <!DOCTYPE html><html lang="en">
   <head>
-    <meta charset="UTF-8">
-    <title>Get Key | ${BRAND}</title>
+    <meta charset="UTF-8"><title>Your Key</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <style>
-      body {
-        background-color: #0f172a;
-        color: #e2e8f0;
-        font-family: system-ui, sans-serif;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100vh;
-        margin: 0;
-        text-align: center;
-      }
-      h1 { font-size: 32px; color: #38bdf8; }
-      .key-box {
-        background: #1e293b;
-        padding: 20px 30px;
-        margin-top: 20px;
-        border-radius: 8px;
-        font-size: 18px;
-        user-select: all;
-      }
-      button {
-        margin-top: 20px;
-        padding: 10px 20px;
-        font-size: 16px;
-        background: #1a73e8;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-      }
-      button:hover { background: #0d47a1; }
+      body { background:#0f172a; color:#e2e8f0; font-family:sans-serif; text-align:center; padding-top:80px; }
+      h1 { color:#38bdf8; }
+      .key-box { background:#1e293b; padding:20px 30px; margin-top:20px; border-radius:8px; font-size:18px; user-select:all; }
+      button { margin-top:20px; padding:10px 20px; font-size:16px; background:#1a73e8; color:white; border:none; border-radius:6px; cursor:pointer; }
     </style>
   </head>
   <body>
     <h1>Your Key</h1>
     <div class="key-box" id="key">${key}</div>
     <button onclick="copyKey()">Copy Key</button>
-
     <script>
       function copyKey() {
         const key = document.getElementById("key").textContent;
         navigator.clipboard.writeText(key).then(() => {
           fetch(window.location.pathname + "/invalidate", { method: "POST" }).then(() => {
-            document.body.innerHTML = '<h1 style="color:#38bdf8;">Key Copied</h1><p>This page has now expired.</p>';
+            document.body.innerHTML = '<h1>Key Copied</h1><p>This page has now expired.</p>';
           });
         });
       }
@@ -117,57 +138,28 @@ app.get("/:slug1/:slug2", (req, res) => {
   </body>
   </html>
   `;
-
   res.status(200).send(html);
 });
 
-// ==== ONE-TIME PAGE INVALIDATION ====
+// ==== POST: Invalidate Page ====
 app.post("/:slug1/:slug2/invalidate", (req, res) => {
-  const routePath = `/${req.params.slug1}/${req.params.slug2}`;
-  oneTimeRoutes.delete(routePath);
-  res.status(200).send("Page invalidated");
+  const route = `/${req.params.slug1}/${req.params.slug2}`;
+  oneTimeRoutes.delete(route);
+  res.status(200).send("Invalidated");
 });
 
-// ==== SCRIPT DELIVERY ====
+// ==== GET: Script Loader ====
 app.get("/script.nmt", (req, res) => {
   const key = req.query.key;
-  if (!key) return res.status(401).send("Missing key.");
+  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
-  const keys = loadKeys();
-  if (!keys.includes(key)) return res.status(403).send("Invalid key.");
+  if (!key) return res.status(401).send("Missing key.");
+  if (!bindings[key]) return res.status(403).send("Invalid key.");
+  if (bindings[key].ip !== ip) return res.status(403).send("IP not matched.");
 
   if (!fs.existsSync(SCRIPT_FILE)) return res.status(500).send("Script missing.");
   res.type("text/plain");
   return res.sendFile(SCRIPT_FILE);
-});
-
-// ==== ADMIN ====
-const ADMIN_KEY = process.env.ADMIN_KEY || "changeme123";
-
-app.get("/admin/keys", (req, res) => {
-  if (req.query.admin !== ADMIN_KEY) return res.status(403).send("Forbidden");
-  res.json({ keys: loadKeys() });
-});
-
-app.post("/admin/keys/add", (req, res) => {
-  if (req.query.admin !== ADMIN_KEY) return res.status(403).send("Forbidden");
-  const { key } = req.body;
-  if (!key) return res.status(400).send("Missing key.");
-  const keys = loadKeys();
-  if (keys.includes(key)) return res.status(400).send("Key already exists.");
-  keys.push(key);
-  saveKeys(keys);
-  res.json({ message: "Key added", key });
-});
-
-app.post("/admin/keys/remove", (req, res) => {
-  if (req.query.admin !== ADMIN_KEY) return res.status(403).send("Forbidden");
-  const { key } = req.body;
-  if (!key) return res.status(400).send("Missing key.");
-  let keys = loadKeys();
-  keys = keys.filter(k => k !== key);
-  saveKeys(keys);
-  res.json({ message: "Key removed", key });
 });
 
 // ==== BLOCK SECRET FOLDER ====
@@ -178,5 +170,5 @@ app.use((_req, res) => res.status(404).send("Not Found"));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`server running on :${PORT}`);
+  console.log(`server running on port ${PORT}`);
 });
