@@ -14,7 +14,7 @@ const KEYS_FILE = path.join(__dirname, "public", "keys.txt");
 const BINDINGS_FILE = path.join(__dirname, "keyBindings.json");
 const WEBHOOK_URL = "https://discord.com/api/webhooks/1412375650811252747/DaLBISW_StaxXagr6uNooBW6CQfCaY8NgsOb13AMaqGkpRBVzYumol657iGuj0k5SRTo";
 
-const oneTimeRoutes = new Map(); // slug => key
+const oneTimeRoutes = new Map(); // slug => { key, ip, discordId }
 const bindings = fs.existsSync(BINDINGS_FILE)
   ? JSON.parse(fs.readFileSync(BINDINGS_FILE))
   : {};
@@ -61,19 +61,18 @@ app.get("/sealife-just-do-it", (_req, res) => {
   `);
 });
 
-// ==== POST: Verify Discord ID + Assign Key ====
+// ==== POST: Verify Discord ID + Assign Key (Deferred Binding) ====
 app.post("/verify-discord", async (req, res) => {
   const discordId = req.body.discordId;
   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
   if (!discordId) return res.status(400).send("Missing Discord ID");
 
-  // Check if already used (by discord or ip)
-  for (const [k, data] of Object.entries(bindings)) {
-    if (data.ip === ip || data.discord === discordId) {
+  for (const data of Object.values(bindings)) {
+    if (data.ip === ip) {
       return res.status(403).send(`
         <html><body style="background:#0f172a;color:#e2e8f0;font-family:sans-serif;text-align:center;padding-top:100px;">
-        <h1>Access Denied</h1><p>You’ve already claimed your access key.</p>
+        <h1>Already Claimed</h1><p>This device has already received a key.</p>
         </body></html>
       `);
     }
@@ -83,28 +82,35 @@ app.post("/verify-discord", async (req, res) => {
   if (keys.length === 0) return res.status(404).send("No keys available.");
 
   const key = keys[Math.floor(Math.random() * keys.length)];
-  bindings[key] = { ip, discord: discordId };
-  saveBindings();
-
   const slug = generateSlug();
-  oneTimeRoutes.set("/" + slug, key);
 
-  sendWebhookLog(`🔑 Key generated for <@${discordId}> | Key: \`${key}\``);
+  oneTimeRoutes.set("/" + slug, { key, ip, discordId });
+
+  sendWebhookLog(`🔗 Key route created for <@${discordId}>`);
 
   return res.redirect("/" + slug);
 });
 
-// ==== GET: One-Time Key Page ====
+// ==== GET: One-Time Key Page (Now binds IP & Discord) ====
 app.get("/:slug1/:slug2", (req, res) => {
   const route = `/${req.params.slug1}/${req.params.slug2}`;
-  const key = oneTimeRoutes.get(route);
-  if (!key) {
+  const entry = oneTimeRoutes.get(route);
+
+  if (!entry) {
     return res.status(404).send(`
       <html><body style="background:#0f172a;color:#e2e8f0;font-family:sans-serif;text-align:center;padding-top:100px;">
       <h1>Page Expired</h1><p>This key page has been used or is invalid.</p>
       </body></html>
     `);
   }
+
+  const { key, ip, discordId } = entry;
+
+  // Now bind key
+  bindings[key] = { ip, discord: discordId };
+  saveBindings();
+
+  sendWebhookLog(`✅ Key claimed by <@${discordId}> | Key: \`${key}\``);
 
   const html = `
   <!DOCTYPE html><html lang="en">
@@ -138,21 +144,21 @@ app.get("/:slug1/:slug2", (req, res) => {
   res.status(200).send(html);
 });
 
-// ==== POST: Invalidate Key Page ====
+// ==== POST: Invalidate After Copy ====
 app.post("/:slug1/:slug2/invalidate", (req, res) => {
   const route = `/${req.params.slug1}/${req.params.slug2}`;
   oneTimeRoutes.delete(route);
   res.status(200).send("Invalidated");
 });
 
-// ==== GET: Load Script If Valid ====
+// ==== GET: Script Loader ====
 app.get("/script.nmt", (req, res) => {
   const key = req.query.key;
   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
   if (!key) return res.status(401).send("Missing key.");
   if (!bindings[key]) return res.status(403).send("Invalid key.");
-  if (bindings[key].ip !== ip) return res.status(403).send("Access restricted to the original device.");
+  if (bindings[key].ip !== ip) return res.status(403).send("Not allowed.");
 
   if (!fs.existsSync(SCRIPT_FILE)) return res.status(500).send("Script missing.");
   res.type("text/plain");
