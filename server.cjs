@@ -4,17 +4,17 @@ const path = require("path");
 const crypto = require("crypto");
 const fetch = require("node-fetch");
 
-const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// ==== CONFIG ====
+// === CONFIG ===
 const SCRIPT_FILE = path.join(__dirname, "secrets", "nmt.scripts");
 const KEYS_FILE = path.join(__dirname, "public", "keys.txt");
 const BINDINGS_FILE = path.join(__dirname, "keyBindings.json");
 const WEBHOOK_URL = "https://discord.com/api/webhooks/1412375650811252747/DaLBISW_StaxXagr6uNooBW6CQfCaY8NgsOb13AMaqGkpRBVzYumol657iGuj0k5SRTo";
 
-const oneTimeRoutes = new Map(); // slug => { key, ip, discordId }
+const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+const oneTimeRoutes = new Map(); // slug => key
 const bindings = fs.existsSync(BINDINGS_FILE)
   ? JSON.parse(fs.readFileSync(BINDINGS_FILE))
   : {};
@@ -35,15 +35,19 @@ function generateSlug() {
   return crypto.randomBytes(6).toString("hex") + "/" + crypto.randomBytes(4).toString("hex");
 }
 
-function sendWebhookLog(message) {
-  fetch(WEBHOOK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: message })
-  }).catch(console.error);
+async function sendWebhookLog(message) {
+  try {
+    await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: message })
+    });
+  } catch (err) {
+    console.error("Webhook Error:", err);
+  }
 }
 
-// ==== GET: Show Discord ID Form ====
+// === GET: Show Discord ID Form ===
 app.get("/sealife-just-do-it", (_req, res) => {
   res.send(`
     <html><head><title>Verify Discord</title></head>
@@ -61,7 +65,7 @@ app.get("/sealife-just-do-it", (_req, res) => {
   `);
 });
 
-// ==== POST: Verify Discord ID + Assign Key (Deferred Binding) ====
+// === POST: Verify + Assign Key ===
 app.post("/verify-discord", async (req, res) => {
   const discordId = req.body.discordId;
   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
@@ -72,7 +76,7 @@ app.post("/verify-discord", async (req, res) => {
     if (data.ip === ip) {
       return res.status(403).send(`
         <html><body style="background:#0f172a;color:#e2e8f0;font-family:sans-serif;text-align:center;padding-top:100px;">
-        <h1>Already Claimed</h1><p>This device has already received a key.</p>
+        <h1>One Key Per Person</h1><p>You already claimed your access key.</p>
         </body></html>
       `);
     }
@@ -82,35 +86,28 @@ app.post("/verify-discord", async (req, res) => {
   if (keys.length === 0) return res.status(404).send("No keys available.");
 
   const key = keys[Math.floor(Math.random() * keys.length)];
+  bindings[key] = { ip, discord: discordId };
+  saveBindings();
+
   const slug = generateSlug();
+  oneTimeRoutes.set("/" + slug, key);
 
-  oneTimeRoutes.set("/" + slug, { key, ip, discordId });
-
-  sendWebhookLog(`🔗 Key route created for <@${discordId}>`);
+  await sendWebhookLog(`🔑 Key claimed by <@${discordId}> → \`${key}\``);
 
   return res.redirect("/" + slug);
 });
 
-// ==== GET: One-Time Key Page (Now binds IP & Discord) ====
+// === GET: One-Time Key Page ===
 app.get("/:slug1/:slug2", (req, res) => {
   const route = `/${req.params.slug1}/${req.params.slug2}`;
-  const entry = oneTimeRoutes.get(route);
-
-  if (!entry) {
+  const key = oneTimeRoutes.get(route);
+  if (!key) {
     return res.status(404).send(`
       <html><body style="background:#0f172a;color:#e2e8f0;font-family:sans-serif;text-align:center;padding-top:100px;">
       <h1>Page Expired</h1><p>This key page has been used or is invalid.</p>
       </body></html>
     `);
   }
-
-  const { key, ip, discordId } = entry;
-
-  // Now bind key
-  bindings[key] = { ip, discord: discordId };
-  saveBindings();
-
-  sendWebhookLog(`✅ Key claimed by <@${discordId}> | Key: \`${key}\``);
 
   const html = `
   <!DOCTYPE html><html lang="en">
@@ -144,34 +141,35 @@ app.get("/:slug1/:slug2", (req, res) => {
   res.status(200).send(html);
 });
 
-// ==== POST: Invalidate After Copy ====
+// === POST: Invalidate Key Page ===
 app.post("/:slug1/:slug2/invalidate", (req, res) => {
   const route = `/${req.params.slug1}/${req.params.slug2}`;
   oneTimeRoutes.delete(route);
   res.status(200).send("Invalidated");
 });
 
-// ==== GET: Script Loader ====
+// === GET: Script Download ===
 app.get("/script.nmt", (req, res) => {
   const key = req.query.key;
   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
   if (!key) return res.status(401).send("Missing key.");
   if (!bindings[key]) return res.status(403).send("Invalid key.");
-  if (bindings[key].ip !== ip) return res.status(403).send("Not allowed.");
+  if (bindings[key].ip !== ip) return res.status(403).send("Key not matched to your IP.");
 
   if (!fs.existsSync(SCRIPT_FILE)) return res.status(500).send("Script missing.");
   res.type("text/plain");
   return res.sendFile(SCRIPT_FILE);
 });
 
-// ==== BLOCK SECRET FOLDER ====
+// === DENY Access to Secret Folder ===
 app.use("/secrets", (_req, res) => res.status(403).send("Access Denied"));
 
-// ==== FALLBACK ====
+// === Fallback 404 ===
 app.use((_req, res) => res.status(404).send("Not Found"));
 
+// === START SERVER ===
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
