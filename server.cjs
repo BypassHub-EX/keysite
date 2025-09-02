@@ -2,7 +2,7 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const fetch = require("node-fetch"); // Compatible with v2.6.7
+const fetch = require("node-fetch"); // v2.6.7 compatible
 
 const app = express();
 app.use(express.json());
@@ -145,15 +145,8 @@ app.post("/:slug1/:slug2/invalidate", (req, res) => {
   res.status(200).send("Invalidated");
 });
 
-// ==== GET: Script Loader ====
-app.get("/script.nmt", (req, res) => {
-  const key = req.query.key;
-  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-
-  if (!key) return res.status(401).send("Missing key.");
-  if (!bindings[key]) return res.status(403).send("Invalid key.");
-  if (bindings[key].ip !== ip) return res.status(403).send("IP not matched.");
-
+// ==== GET: PUBLIC Script Loader ====
+app.get("/script.nmt", (_req, res) => {
   if (!fs.existsSync(SCRIPT_FILE)) return res.status(500).send("Script missing.");
   res.type("text/plain");
   return res.sendFile(SCRIPT_FILE);
