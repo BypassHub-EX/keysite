@@ -1,5 +1,5 @@
 // ======================================================
-// Lazy Devs Server | Keys + FreeKey + Scripts + Polls
+// Lazy Devs Server | Keys + Scripts + Polls
 // ======================================================
 
 const express = require("express");
@@ -51,14 +51,31 @@ function sendWebhookLog(message) {
 }
 
 // ======================================================
-// FREE UNIVERSAL KEY
+// FREE UNIVERSAL KEY (DISABLED)
 // ======================================================
-app.get("/freekey", (req, res) => {
+app.get("/freekey", (_req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head><meta charset="UTF-8"><title>Free Keys Disabled</title></head>
+    <body style="background:#0f172a;color:#e2e8f0;font-family:sans-serif;text-align:center;padding-top:120px;">
+      <h1 style="color:#f87171;">Free Keys Disabled</h1>
+      <p>The free key period has ended. Please obtain a valid key from the main key system.</p>
+    </body>
+    </html>
+  `);
+});
+
+// ======================================================
+// STAFF PREMIUM KEY PAGE
+// ======================================================
+app.get("/jshsu28182jsjsxssxk", (req, res) => {
   const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-  const key = "LAZY-NMT-FREE";
+  const key = "LAZY-STAFF-PREM-IUM-14";
+  const timestamp = new Date().toISOString();
 
   sendWebhookLog(
-    `New Free Key issued\nKey: ${key}\nIP: ${ip}`
+    `Staff Key Accessed\nKey: ${key}\nIP: ${ip}\nTime: ${timestamp}`
   );
 
   res.send(`
@@ -66,7 +83,7 @@ app.get("/freekey", (req, res) => {
   <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Lazy Devs Free Key</title>
+    <title>Lazy Devs Staff Key</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <style>
       body {
@@ -86,9 +103,10 @@ app.get("/freekey", (req, res) => {
         backdrop-filter: blur(12px);
         text-align: center;
         box-shadow: 0 4px 30px rgba(0,0,0,0.5);
-        max-width: 400px;
+        max-width: 420px;
       }
       h1 { color: #38bdf8; margin-bottom: 10px; }
+      h2 { color: #facc15; margin-bottom: 20px; font-size: 18px; }
       .key-box {
         background: #1e293b;
         padding: 15px;
@@ -111,7 +129,8 @@ app.get("/freekey", (req, res) => {
   </head>
   <body>
     <div class="glass">
-      <h1>Your Free Key</h1>
+      <h1>Staff Premium Key</h1>
+      <h2>(Authorized Staff Only)</h2>
       <div class="key-box" id="key">${key}</div>
       <button onclick="copyKey()">Copy Key</button>
     </div>
@@ -129,7 +148,7 @@ app.get("/freekey", (req, res) => {
 });
 
 // ======================================================
-// NORMAL KEY SYSTEM (still works if you want to issue unique keys)
+// NORMAL KEY SYSTEM
 // ======================================================
 app.get("/sealife-just-do-it", (_req, res) => {
   res.send(`
@@ -223,7 +242,7 @@ app.get("/nmt.script", (req, res) => {
 app.use("/public", express.static(path.join(__dirname, "public")));
 
 // ======================================================
-// POLL SYSTEM (kept in case you want it later)
+// POLL SYSTEM
 // ======================================================
 app.get("/poll", (_req, res) => {
   res.send(`<h1>Poll system coming soon...</h1>`);
