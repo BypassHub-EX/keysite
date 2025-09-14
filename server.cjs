@@ -15,13 +15,13 @@ app.use(express.urlencoded({ extended: true }));
 // ==== CONFIG ====
 const SCRIPT_FILE_PROTECTED = path.join(__dirname, "secrets", "nmt.scripts");
 const SCRIPT_FILE_PUBLIC = path.join(__dirname, "public", "nmt.script");
+const SCRIPT_FILE_FORSAKEN = path.join(__dirname, "public", "fsk.script"); 
 const KEYS_FILE = path.join(__dirname, "public", "keys.txt");
 const BINDINGS_FILE = path.join(__dirname, "keyBindings.json");
 const POLL_FILE = path.join(__dirname, "pollVotes.json");
-const WEBHOOK_URL = "https://discord.com/api/webhooks/1412375650811252747/DaLBISW_StaxXagr6uNooBW6CQfCaY8NgsOb13AMaqGkpRBVzYumol657iGuj0k5SRTo";
 
-// External Forsaken script URL
-const FORSAKEN_SCRIPT_URL = "https://api.junkie-development.de/api/v1/luascripts/public/878fc52448af874b46df0f3e2005822da975ffe7306cf77e090c61ee64bb755f/download";
+// 🔥 NEW WEBHOOK
+const WEBHOOK_URL = "https://discord.com/api/webhooks/1416778293729955970/GdIfK0S-ewc3Ge7kgBv2SV_lN1rzhMI4Fv3R2Hj0hK7couons3YPiSmx7doq7NK8vBpL";
 
 const oneTimeRoutes = new Map();
 const bindings = fs.existsSync(BINDINGS_FILE)
@@ -241,12 +241,12 @@ app.get("/nmt.script", (req, res) => {
   res.type("text/plain").sendFile(SCRIPT_FILE_PUBLIC);
 });
 
-// NEW: Forsaken Script route (redirects to external Lua)
-app.get("/forsaken.script", (_req, res) => {
-  res.redirect(FORSAKEN_SCRIPT_URL);
+app.get("/forsaken.script", (req, res) => {
+  if (!fs.existsSync(SCRIPT_FILE_FORSAKEN)) return res.status(500).send("Forsaken script not found.");
+  res.type("text/plain").sendFile(SCRIPT_FILE_FORSAKEN);
 });
 
-// Public keys.txt and other public files
+// Public files
 app.use("/public", express.static(path.join(__dirname, "public")));
 
 // ======================================================
@@ -260,6 +260,14 @@ app.get("/poll", (_req, res) => {
 // BLOCK SECRETS
 // ======================================================
 app.use("/secrets", (_req, res) => res.status(403).send("Access Denied"));
+
+// ======================================================
+// PING EVERYONE ENDPOINT
+// ======================================================
+app.post("/ping-everyone", (req, res) => {
+  sendWebhookLog("@everyone");
+  res.status(200).send("Ping sent to Discord");
+});
 
 // ======================================================
 // START SERVER
