@@ -83,74 +83,25 @@ app.get("/pricing", (_req, res) => {
     <meta charset="UTF-8" />
     <title>Forsaken Premium Pricing</title>
     <style>
-      body {
-        margin: 0;
-        font-family: Arial, sans-serif;
-        background: #0f172a;
-        color: #e2e8f0;
-        text-align: center;
-      }
-      h1 {
-        font-size: 2.4rem;
-        color: #38bdf8;
-        margin-top: 60px;
-      }
-      p.sub {
-        font-size: 1.1rem;
-        margin-bottom: 50px;
-        color: #94a3b8;
-      }
-      .pricing-cards {
-        display: flex;
-        justify-content: center;
-        flex-wrap: wrap;
-        gap: 30px;
-        margin: 0 auto;
-        max-width: 900px;
-      }
-      .card {
-        background: #1e293b;
-        border-radius: 12px;
-        padding: 40px 30px;
-        width: 300px;
-        box-shadow: 0 6px 18px rgba(0,0,0,0.4);
-        transition: transform 0.2s ease;
-      }
+      body { margin: 0; font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; text-align: center; }
+      h1 { font-size: 2.4rem; color: #38bdf8; margin-top: 60px; }
+      p.sub { font-size: 1.1rem; margin-bottom: 50px; color: #94a3b8; }
+      .pricing-cards { display: flex; justify-content: center; flex-wrap: wrap; gap: 30px; margin: 0 auto; max-width: 900px; }
+      .card { background: #1e293b; border-radius: 12px; padding: 40px 30px; width: 300px; box-shadow: 0 6px 18px rgba(0,0,0,0.4); transition: transform 0.2s ease; }
       .card:hover { transform: translateY(-5px); }
       .card h3 { font-size: 1.5rem; margin-bottom: 15px; }
-      .card .price {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #facc15;
-        margin-bottom: 15px;
-      }
+      .card .price { font-size: 2rem; font-weight: 700; color: #facc15; margin-bottom: 15px; }
       .card .price span { font-size: 1rem; color: #94a3b8; }
       .card .desc { font-size: 0.95rem; color: #cbd5e1; margin-bottom: 25px; }
-      .btn {
-        display: block;
-        margin: 8px 0;
-        padding: 12px 20px;
-        border-radius: 8px;
-        font-size: 1rem;
-        text-decoration: none;
-        font-weight: 600;
-      }
-      .btn-primary {
-        background: #38bdf8;
-        color: #0f172a;
-      }
-      .btn-secondary {
-        background: transparent;
-        border: 2px solid #38bdf8;
-        color: #e2e8f0;
-      }
+      .btn { display: block; margin: 8px 0; padding: 12px 20px; border-radius: 8px; font-size: 1rem; text-decoration: none; font-weight: 600; }
+      .btn-primary { background: #38bdf8; color: #0f172a; }
+      .btn-secondary { background: transparent; border: 2px solid #38bdf8; color: #e2e8f0; }
     </style>
   </head>
   <body>
     <h1>Forsaken Premium</h1>
     <p class="sub">Choose your plan and unlock Forsaken instantly.</p>
     <div class="pricing-cards">
-      <!-- Weekly -->
       <div class="card">
         <h3>Weekly Access</h3>
         <p class="price">$2.50 <span>/ week</span></p>
@@ -158,8 +109,6 @@ app.get("/pricing", (_req, res) => {
         <a href="https://ko-fi.com/yourpage" class="btn btn-primary">Buy with Ko-fi</a>
         <a href="https://paypal.me/yourpage" class="btn btn-secondary">Buy with PayPal</a>
       </div>
-
-      <!-- Monthly -->
       <div class="card">
         <h3>Monthly Access</h3>
         <p class="price">$7.00 <span>/ month</span></p>
@@ -197,5 +146,5 @@ app.use("/secrets", (_req, res) => res.status(403).send("Access Denied"));
 // ======================================================
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(\`Server running on port \${PORT}\`);
+  console.log("Server running on port " + PORT);
 });
