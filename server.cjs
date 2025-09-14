@@ -87,7 +87,7 @@ app.get("/pricing", (_req, res) => {
       h1 { font-size: 2.4rem; color: #38bdf8; margin-top: 60px; }
       p.sub { font-size: 1.1rem; margin-bottom: 50px; color: #94a3b8; }
       .pricing-cards { display: flex; justify-content: center; flex-wrap: wrap; gap: 30px; margin: 0 auto; max-width: 900px; }
-      .card { background: #1e293b; border-radius: 12px; padding: 40px 30px; width: 300px; box-shadow: 0 6px 18px rgba(0,0,0,0.4); transition: transform 0.2s ease; }
+      .card { background: #1e293b; border-radius: 12px; padding: 40px 30px; width: 320px; box-shadow: 0 6px 18px rgba(0,0,0,0.4); transition: transform 0.2s ease; }
       .card:hover { transform: translateY(-5px); }
       .card h3 { font-size: 1.5rem; margin-bottom: 15px; }
       .card .price { font-size: 2rem; font-weight: 700; color: #facc15; margin-bottom: 15px; }
@@ -100,21 +100,19 @@ app.get("/pricing", (_req, res) => {
   </head>
   <body>
     <h1>Forsaken Premium</h1>
-    <p class="sub">Choose your plan and unlock Forsaken instantly.</p>
+    <p class="sub">This plan is for <strong>one script only</strong>. All payments (card/PayPal) are securely processed by Ko-fi.</p>
     <div class="pricing-cards">
       <div class="card">
         <h3>Weekly Access</h3>
         <p class="price">$2.50 <span>/ week</span></p>
         <p class="desc">Full premium access with updates included.</p>
-        <a href="https://ko-fi.com/yourpage" class="btn btn-primary">Buy with Ko-fi</a>
-        <a href="https://paypal.me/yourpage" class="btn btn-secondary">Buy with PayPal</a>
+        <a href="https://ko-fi.com/oilmoney01" class="btn btn-primary">Buy with Ko-fi</a>
       </div>
       <div class="card">
         <h3>Monthly Access</h3>
         <p class="price">$7.00 <span>/ month</span></p>
         <p class="desc">Best value — premium access for a full month.</p>
-        <a href="https://ko-fi.com/yourpage" class="btn btn-primary">Buy with Ko-fi</a>
-        <a href="https://paypal.me/yourpage" class="btn btn-secondary">Buy with PayPal</a>
+        <a href="https://ko-fi.com/oilmoney01" class="btn btn-primary">Buy with Ko-fi</a>
       </div>
     </div>
   </body>
