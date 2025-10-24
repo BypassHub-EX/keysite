@@ -1,3 +1,6 @@
+# Lazy Devs Server | Full `server.cjs` (October 2025)
+
+```js
 // ======================================================
 // Lazy Devs Server | Keys + Scripts + Polls + Pricing
 // ======================================================
