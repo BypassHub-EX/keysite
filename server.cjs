@@ -19,7 +19,8 @@ const SCRIPT_FILE_FORSAKEN = path.join(__dirname, "public", "fsk.script");
 const KEYS_FILE = path.join(__dirname, "public", "keys.txt");
 const BINDINGS_FILE = path.join(__dirname, "keyBindings.json");
 const POLL_FILE = path.join(__dirname, "pollVotes.json");
-const WEBHOOK_URL = "https://discord.com/api/webhooks/1412375650811252747/DaLBISW_StaxXagr6uNooBW6CQfCaY8NgsOb13AMaqGkpRBVzYumol657iGuj0k5SRTo";
+const WEBHOOK_URL_LOGS = "https://discord.com/api/webhooks/1412375650811252747/DaLBISW_StaxXagr6uNooBW6CQfCaY8NgsOb13AMaqGkpRBVzYumol657iGuj0k5SRTo";
+const WEBHOOK_URL_RULES = "https://discord.com/api/webhooks/1431392663122481223/Y7aF9agrgmROli4e1Uz1LSYr-9EfUn5ikaiSjmmmXq4MOiUvV2FVkdbKIJFFyXdUTtIF";
 
 const oneTimeRoutes = new Map();
 const bindings = fs.existsSync(BINDINGS_FILE)
@@ -44,7 +45,7 @@ function generateSlug() {
 }
 
 function sendWebhookLog(message) {
-  fetch(WEBHOOK_URL, {
+  fetch(WEBHOOK_URL_LOGS, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content: message })
@@ -69,75 +70,150 @@ app.get("/forsaken.script", (req, res) => {
   res.type("text/plain").sendFile(SCRIPT_FILE_FORSAKEN);
 });
 
-// Public keys.txt and other public files
 app.use("/public", express.static(path.join(__dirname, "public")));
 
 // ======================================================
 // PRICING PAGE
 // ======================================================
 app.get("/pricing", (_req, res) => {
-  res.send(`
-  <!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Forsaken Premium Pricing</title>
-    <style>
-      body { margin: 0; font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; text-align: center; }
-      h1 { font-size: 2.4rem; color: #38bdf8; margin-top: 60px; }
-      p.sub { font-size: 1.1rem; margin-bottom: 50px; color: #94a3b8; }
-      .pricing-cards { display: flex; justify-content: center; flex-wrap: wrap; gap: 30px; margin: 0 auto; max-width: 900px; }
-      .card { background: #1e293b; border-radius: 12px; padding: 40px 30px; width: 320px; box-shadow: 0 6px 18px rgba(0,0,0,0.4); transition: transform 0.2s ease; }
-      .card:hover { transform: translateY(-5px); }
-      .card h3 { font-size: 1.5rem; margin-bottom: 15px; }
-      .card .price { font-size: 2rem; font-weight: 700; color: #facc15; margin-bottom: 15px; }
-      .card .price span { font-size: 1rem; color: #94a3b8; }
-      .card .desc { font-size: 0.95rem; color: #cbd5e1; margin-bottom: 25px; }
-      .btn { display: block; margin: 8px 0; padding: 12px 20px; border-radius: 8px; font-size: 1rem; text-decoration: none; font-weight: 600; }
-      .btn-primary { background: #38bdf8; color: #0f172a; }
-      .btn-secondary { background: transparent; border: 2px solid #38bdf8; color: #e2e8f0; }
-    </style>
-  </head>
-  <body>
-    <h1>Forsaken Premium</h1>
-    <p class="sub">This plan is for <strong>one script only</strong>. All payments (card/PayPal) are securely processed by Ko-fi.</p>
-    <div class="pricing-cards">
-      <div class="card">
-        <h3>Weekly Access</h3>
-        <p class="price">$2.50 <span>/ week</span></p>
-        <p class="desc">Full premium access with updates included.</p>
-        <a href="https://ko-fi.com/oilmoney01" class="btn btn-primary">Buy with Ko-fi</a>
-      </div>
-      <div class="card">
-        <h3>Monthly Access</h3>
-        <p class="price">$7.00 <span>/ month</span></p>
-        <p class="desc">Best value — premium access for a full month.</p>
-        <a href="https://ko-fi.com/oilmoney01" class="btn btn-primary">Buy with Ko-fi</a>
-      </div>
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>Forsaken Premium Pricing</title>
+<style>
+  body { margin: 0; font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; text-align: center; }
+  h1 { font-size: 2.4rem; color: #38bdf8; margin-top: 60px; }
+  p.sub { font-size: 1.1rem; margin-bottom: 50px; color: #94a3b8; }
+  .pricing-cards { display: flex; justify-content: center; flex-wrap: wrap; gap: 30px; margin: 0 auto; max-width: 900px; }
+  .card { background: #1e293b; border-radius: 12px; padding: 40px 30px; width: 320px; box-shadow: 0 6px 18px rgba(0,0,0,0.4); transition: transform 0.2s ease; }
+  .card:hover { transform: translateY(-5px); }
+  .card h3 { font-size: 1.5rem; margin-bottom: 15px; }
+  .card .price { font-size: 2rem; font-weight: 700; color: #facc15; margin-bottom: 15px; }
+  .card .price span { font-size: 1rem; color: #94a3b8; }
+  .card .desc { font-size: 0.95rem; color: #cbd5e1; margin-bottom: 25px; }
+  .btn { display: block; margin: 8px 0; padding: 12px 20px; border-radius: 8px; font-size: 1rem; text-decoration: none; font-weight: 600; }
+  .btn-primary { background: #38bdf8; color: #0f172a; }
+  .btn-secondary { background: transparent; border: 2px solid #38bdf8; color: #e2e8f0; }
+</style>
+</head>
+<body>
+  <h1>Forsaken Premium</h1>
+  <p class="sub">This plan is for <strong>one script only</strong>. All payments (card/PayPal) are securely processed by Ko-fi.</p>
+  <div class="pricing-cards">
+    <div class="card">
+      <h3>Weekly Access</h3>
+      <p class="price">$2.50 <span>/ week</span></p>
+      <p class="desc">Full premium access with updates included.</p>
+      <a href="https://ko-fi.com/oilmoney01" class="btn btn-primary">Buy with Ko-fi</a>
     </div>
-  </body>
-  </html>
-  `);
+    <div class="card">
+      <h3>Monthly Access</h3>
+      <p class="price">$7.00 <span>/ month</span></p>
+      <p class="desc">Best value — premium access for a full month.</p>
+      <a href="https://ko-fi.com/oilmoney01" class="btn btn-primary">Buy with Ko-fi</a>
+    </div>
+  </div>
+</body></html>`);
 });
 
-// ======================================================
-// REDIRECTS
-// ======================================================
 app.get("/buy-premium", (_req, res) => {
   res.redirect("/pricing");
 });
 
-// ======================================================
-// POLL SYSTEM
-// ======================================================
 app.get("/poll", (_req, res) => {
   res.send(`<h1>Poll system coming soon...</h1>`);
 });
 
-// ======================================================
-// BLOCK SECRETS
-// ======================================================
 app.use("/secrets", (_req, res) => res.status(403).send("Access Denied"));
+
+// ======================================================
+// SEND RULES TO WEBHOOK
+// ======================================================
+app.post("/send-rules", async (_req, res) => {
+  const content = `
+# Lazy Devs - Rules & Terms
+**Effective as of October 2025**
+
+This server is a private hub for advanced scripting discussions, tool previews, and automation logic — not a place to promote or glamorize exploits. All members are expected to follow these terms strictly.
+
+———————————————————————————————————————————————————————
+
+# 1. Purpose
+**This is a scripting-focused server.**
+We do not promote exploiting. Tools shared here are for educational, testing, and automation purposes only.
+
+-# Any abuse of these tools is entirely the user’s responsibility.
+
+———————————————————————————————————————————————————————
+
+# 2. Behavior
+* Stay respectful and mature at all times.
+* No spam, hate speech, slurs, or harassment.
+* No impersonation of developers or staff.
+* Stay on topic in channels.
+
+———————————————————————————————————————————————————————
+
+# 3. Script Access
+* Most scripts require keys — nothing is truly keyless.
+* Keys are not to be shared, resold, or bypassed.
+* Violating this results in blacklist or permanent ban.
+* All scripts are provided "as-is" — we are not responsible for account bans.
+
+———————————————————————————————————————————————————————
+
+# 4. Legal Notice
+* Don’t share malicious code, viruses, stealers, or crashers.
+* Anything violating Roblox or Discord’s TOS will be removed.
+* This server disclaims all liability for what users do with scripts.
+
+———————————————————————————————————————————————————————
+
+# 5. Ownership
+* Don’t repost, resell, or steal code that isn’t yours.
+* Credit all creators when using or editing tools.
+* Proven theft = blacklist.
+
+———————————————————————————————————————————————————————
+
+# 6. Privacy
+* We do not collect personal data beyond basic whitelisting (e.g., HWID, IP).
+* Do not post your login info, tokens, or files publicly.
+* Asking others for personal access = ban.
+
+———————————————————————————————————————————————————————
+
+# 7. Moderation
+* Mods may remove content or users without warning.
+* All bans are final unless appealed with proof.
+* Circumventing bans results in full blacklist.
+
+———————————————————————————————————————————————————————
+
+# 8. Reporting
+* If you find bugs, loopholes, or broken rules — report them.
+* We appreciate honest feedback and fix reports.
+* We update the rules regularly.
+
+———————————————————————————————————————————————————————
+
+# 9. Final Note
+**By being in this server, using our tools, or accessing any content — you agree to all of the above.**
+This is a private scripting hub, not a public exploit warehouse.
+Don’t test us.
+`;
+
+  try {
+    await fetch(WEBHOOK_URL_RULES, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content })
+    });
+    res.send("Rules sent to webhook.");
+  } catch (e) {
+    console.error("Error sending rules:", e);
+    res.status(500).send("Failed to send rules.");
+  }
+});
 
 // ======================================================
 // START SERVER
