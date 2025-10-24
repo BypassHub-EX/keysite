@@ -1,6 +1,3 @@
-# Lazy Devs Server | Full `server.cjs` (October 2025)
-
-```js
 // ======================================================
 // Lazy Devs Server | Keys + Scripts + Polls + Pricing
 // ======================================================
@@ -37,21 +34,26 @@ function saveBindings() {
 
 function loadKeys() {
   if (!fs.existsSync(KEYS_FILE)) return [];
-  return fs.readFileSync(KEYS_FILE, "utf8")
+  return fs
+    .readFileSync(KEYS_FILE, "utf8")
     .split(/\r?\n/)
-    .map(k => k.trim())
-    .filter(k => k.length > 0);
+    .map((k) => k.trim())
+    .filter((k) => k.length > 0);
 }
 
 function generateSlug() {
-  return crypto.randomBytes(6).toString("hex") + "/" + crypto.randomBytes(4).toString("hex");
+  return (
+    crypto.randomBytes(6).toString("hex") +
+    "/" +
+    crypto.randomBytes(4).toString("hex")
+  );
 }
 
 function sendWebhookLog(payload) {
   fetch(WEBHOOK_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
   }).catch(console.error);
 }
 
@@ -59,17 +61,20 @@ function sendWebhookLog(payload) {
 // SCRIPT ROUTES
 // ======================================================
 app.get("/script.nmt", (req, res) => {
-  if (!fs.existsSync(SCRIPT_FILE_PROTECTED)) return res.status(500).send("Script not found.");
+  if (!fs.existsSync(SCRIPT_FILE_PROTECTED))
+    return res.status(500).send("Script not found.");
   res.type("text/plain").sendFile(SCRIPT_FILE_PROTECTED);
 });
 
 app.get("/nmt.script", (req, res) => {
-  if (!fs.existsSync(SCRIPT_FILE_PUBLIC)) return res.status(500).send("Script not found.");
+  if (!fs.existsSync(SCRIPT_FILE_PUBLIC))
+    return res.status(500).send("Script not found.");
   res.type("text/plain").sendFile(SCRIPT_FILE_PUBLIC);
 });
 
 app.get("/forsaken.script", (req, res) => {
-  if (!fs.existsSync(SCRIPT_FILE_FORSAKEN)) return res.status(500).send("Forsaken script not found.");
+  if (!fs.existsSync(SCRIPT_FILE_FORSAKEN))
+    return res.status(500).send("Forsaken script not found.");
   res.type("text/plain").sendFile(SCRIPT_FILE_FORSAKEN);
 });
 
@@ -80,50 +85,60 @@ app.get("/send-rules", (req, res) => {
   const embedPayload = {
     embeds: [
       {
-        title: "# Lazy Devs - Rules & Terms",
-        description: "**Effective as of October 2025**\n\nThis server is a private hub for advanced scripting discussions, tool previews, and automation logic — not a place to promote or glamorize exploits. All members are expected to follow these terms strictly.",
-        color: 0xFF0000,
+        title: "Lazy Devs - Rules & Terms",
+        description:
+          "**Effective as of October 2025**\n\nThis server is a private hub for advanced scripting discussions, tool previews, and automation logic — not a place to promote or glamorize exploits. All members are expected to follow these terms strictly.",
+        color: 0xff0000,
         fields: [
           {
-            name: "# 1. Purpose",
-            value: "**This is a scripting-focused server.**\nWe do not promote exploiting. Tools shared here are for educational, testing, and automation purposes only.\n\n-# Any abuse of these tools is entirely the user’s responsibility."
+            name: "1. Purpose",
+            value:
+              "**This is a scripting-focused server.**\nWe do not promote exploiting. Tools shared here are for educational, testing, and automation purposes only.\n\nAny abuse of these tools is entirely the user’s responsibility.",
           },
           {
-            name: "# 2. Behavior",
-            value: "* Stay respectful and mature at all times.\n* No spam, hate speech, slurs, or harassment.\n* No impersonation of developers or staff.\n* Stay on topic in channels."
+            name: "2. Behavior",
+            value:
+              "• Stay respectful and mature at all times.\n• No spam, hate speech, slurs, or harassment.\n• No impersonation of developers or staff.\n• Stay on topic in channels.",
           },
           {
-            name: "# 3. Script Access",
-            value: "* Most scripts require keys — nothing is truly keyless.\n* Keys are not to be shared, resold, or bypassed.\n* Violating this results in blacklist or permanent ban.\n* All scripts are provided \"as-is\" — we are not responsible for account bans."
+            name: "3. Script Access",
+            value:
+              "• Most scripts require keys — nothing is truly keyless.\n• Keys are not to be shared, resold, or bypassed.\n• Violating this results in blacklist or permanent ban.\n• All scripts are provided 'as-is' — we are not responsible for account bans.",
           },
           {
-            name: "# 4. Legal Notice",
-            value: "* Don’t share malicious code, viruses, stealers, or crashers.\n* Anything violating Roblox or Discord’s TOS will be removed.\n* This server disclaims all liability for what users do with scripts."
+            name: "4. Legal Notice",
+            value:
+              "• Don’t share malicious code, viruses, stealers, or crashers.\n• Anything violating Roblox or Discord’s TOS will be removed.\n• This server disclaims all liability for what users do with scripts.",
           },
           {
-            name: "# 5. Ownership",
-            value: "* Don’t repost, resell, or steal code that isn’t yours.\n* Credit all creators when using or editing tools.\n* Proven theft = blacklist."
+            name: "5. Ownership",
+            value:
+              "• Don’t repost, resell, or steal code that isn’t yours.\n• Credit all creators when using or editing tools.\n• Proven theft = blacklist.",
           },
           {
-            name: "# 6. Privacy",
-            value: "* We do not collect personal data beyond basic whitelisting (e.g., HWID, IP).\n* Do not post your login info, tokens, or files publicly.\n* Asking others for personal access = ban."
+            name: "6. Privacy",
+            value:
+              "• We do not collect personal data beyond basic whitelisting (e.g., HWID, IP).\n• Do not post your login info, tokens, or files publicly.\n• Asking others for personal access = ban.",
           },
           {
-            name: "# 7. Moderation",
-            value: "* Mods may remove content or users without warning.\n* All bans are final unless appealed with proof.\n* Circumventing bans results in full blacklist."
+            name: "7. Moderation",
+            value:
+              "• Mods may remove content or users without warning.\n• All bans are final unless appealed with proof.\n• Circumventing bans results in full blacklist.",
           },
           {
-            name: "# 8. Reporting",
-            value: "* If you find bugs, loopholes, or broken rules — report them.\n* We appreciate honest feedback and fix reports.\n* We update the rules regularly."
+            name: "8. Reporting",
+            value:
+              "• If you find bugs, loopholes, or broken rules — report them.\n• We appreciate honest feedback and fix reports.\n• We update the rules regularly.",
           },
           {
-            name: "# 9. Final Note",
-            value: "**By being in this server, using our tools, or accessing any content — you agree to all of the above.**\nThis is a private scripting hub, not a public exploit warehouse.\nDon’t test us."
-          }
+            name: "9. Final Note",
+            value:
+              "**By being in this server, using our tools, or accessing any content — you agree to all of the above.**\nThis is a private scripting hub, not a public exploit warehouse.\nDon’t test us.",
+          },
         ],
-        footer: { text: "www.lazydevs.site" }
-      }
-    ]
+        footer: { text: "www.lazydevs.site" },
+      },
+    ],
   };
 
   sendWebhookLog(embedPayload);
