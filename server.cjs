@@ -1,5 +1,5 @@
 // ======================================================
-// Lazy Devs Server | Keys + Scripts + Polls + Pricing
+// Lazy Devs Server | Keys + Scripts + Polls + Pricing + Redirects
 // ======================================================
 
 const express = require("express");
@@ -198,6 +198,11 @@ app.get("/pricing", (_req, res) => {
 // ======================================================
 app.get("/buy-premium", (_req, res) => {
   res.redirect("/pricing");
+});
+
+// ✅ NEW: LazyCat Invite Redirect
+app.get("/invite-lazycat", (_req, res) => {
+  res.redirect("https://discord.com/oauth2/authorize?client_id=1433948727118135336&permissions=8&scope=bot%20applications.commands");
 });
 
 // ======================================================
