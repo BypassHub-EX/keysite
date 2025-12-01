@@ -13,15 +13,19 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ==== CONFIG ====
+
+// Scripts
 const SCRIPT_FILE_PROTECTED = path.join(__dirname, "secrets", "nmt.scripts");
 const SCRIPT_FILE_PUBLIC = path.join(__dirname, "public", "nmt.script");
 const SCRIPT_FILE_FORSAKEN = path.join(__dirname, "public", "fsk.script");
-const SCRIPT_FILE_FISHIT = path.join(__dirname, "public", "fishit.script");
+const SCRIPT_FILE_FISH = path.join(__dirname, "public", "project-fish.script");
 
+// Keys + Poll
 const KEYS_FILE = path.join(__dirname, "public", "keys.txt");
 const BINDINGS_FILE = path.join(__dirname, "keyBindings.json");
 const POLL_FILE = path.join(__dirname, "pollVotes.json");
 
+// Webhook
 const WEBHOOK_URL =
   "https://discord.com/api/webhooks/1431392663122481223/Y7aF9agrgmROli4e1Uz1LSYr-9EfUn5ikaiSjmmmXq4MOiUvV2FVkdbKIJFFyXdUTtIF";
 
@@ -64,36 +68,36 @@ function sendWebhookLog(payload) {
 // SCRIPT ROUTES
 // ======================================================
 
-// NMT (PROTECTED)
+// Protected NMT
 app.get("/script.nmt", (req, res) => {
   if (!fs.existsSync(SCRIPT_FILE_PROTECTED))
     return res.status(500).send("Script not found.");
   res.type("text/plain").sendFile(SCRIPT_FILE_PROTECTED);
 });
 
-// NMT (PUBLIC)
+// Public NMT
 app.get("/nmt.script", (req, res) => {
   if (!fs.existsSync(SCRIPT_FILE_PUBLIC))
     return res.status(500).send("Script not found.");
   res.type("text/plain").sendFile(SCRIPT_FILE_PUBLIC);
 });
 
-// FORSAKEN (PUBLIC)
+// Forsaken
 app.get("/forsaken.script", (req, res) => {
   if (!fs.existsSync(SCRIPT_FILE_FORSAKEN))
     return res.status(500).send("Forsaken script not found.");
   res.type("text/plain").sendFile(SCRIPT_FILE_FORSAKEN);
 });
 
-// ✅ NEW — PROJECT FISH
-app.get("/project-fish", (req, res) => {
-  if (!fs.existsSync(SCRIPT_FILE_FISHIT))
-    return res.status(500).send("FishIt script not found.");
-  res.type("text/plain").sendFile(SCRIPT_FILE_FISHIT);
+// ✅ NEW — PROJECT-FISH (EXACT SAME FORMAT)
+app.get("/project-fish.script", (req, res) => {
+  if (!fs.existsSync(SCRIPT_FILE_FISH))
+    return res.status(500).send("Project Fish script not found.");
+  res.type("text/plain").sendFile(SCRIPT_FILE_FISH);
 });
 
 // ======================================================
-// SEND RULES TO WEBHOOK
+// SEND RULES TO WEBHOOK (/send-rules)
 // ======================================================
 app.get("/send-rules", (req, res) => {
   const embedPayload = {
@@ -107,45 +111,46 @@ app.get("/send-rules", (req, res) => {
           {
             name: "1. Purpose",
             value:
-              "**This is a scripting-focused server.** Tools are for testing and educational use.",
+              "**This is a scripting-focused server.** Tools are for testing and educational use.\nAbuse = your responsibility.",
           },
           {
             name: "2. Behavior",
             value:
-              "• No spam or harassment.\n• Stay respectful.\n• Follow channel rules.",
+              "• No spam or drama.\n• No harassment.\n• Be respectful in all channels.",
           },
           {
             name: "3. Script Access",
             value:
-              "• Keys required.\n• No sharing or reselling.\n• Abuse = blacklist.",
+              "• Keys required.\n• No sharing, reselling, or bypassing keys.\n• Any violations = blacklist.",
           },
           {
             name: "4. Legal Notice",
             value:
-              "• No malicious code.\n• Anything breaking TOS gets removed.",
+              "• No malicious code.\n• No stealers, crashers, or TOS-breaking tools.",
           },
           {
             name: "5. Ownership",
-            value: "• Do not steal or repost code.\n• Proven theft = ban.",
+            value: "• Do not steal or repost code.\n• Stealing = permanent ban.",
           },
           {
             name: "6. Privacy",
             value:
-              "• We don't collect personal data beyond whitelisting.\n• Do not share logins or tokens.",
+              "• Only whitelist data is collected.\n• Never share login info publicly.",
           },
           {
             name: "7. Moderation",
             value:
-              "• Mods may remove content.\n• Ban evasion = permanent blacklist.",
+              "• Mods may remove users at any time.\n• Ban evasion = permanent blacklist.",
           },
           {
             name: "8. Reporting",
-            value: "• Report bugs or rule breaks.\n• We appreciate feedback.",
+            value:
+              "• Report bugs or rule breaks.\n• Feedback is always appreciated.",
           },
           {
             name: "9. Final Note",
             value:
-              "**By using our tools, you agree to all rules listed above.**",
+              "**Using our scripts = agreeing to all rules listed above.**",
           },
         ],
         footer: { text: "www.lazydevs.site" },
@@ -168,17 +173,15 @@ app.get("/pricing", (_req, res) => {
       <meta charset="UTF-8" />
       <title>Forsaken Premium Pricing</title>
       <style>
-        body { margin:0; font-family:Arial; background:#0f172a; color:#e2e8f0; text-align:center; }
-        h1 { font-size:2.4rem; color:#38bdf8; margin-top:60px; }
-        p.sub { font-size:1.1rem; margin-bottom:50px; color:#94a3b8; }
-        .pricing-cards { display:flex; justify-content:center; flex-wrap:wrap; gap:30px; max-width:900px; margin:0 auto; }
-        .card { background:#1e293b; padding:40px 30px; width:320px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
-        .price { font-size:2rem; font-weight:700; color:#facc15; margin:15px 0; }
+        body { margin: 0; background:#0f172a; color:#e2e8f0; text-align:center; font-family:Arial; }
+        h1 { color:#38bdf8; font-size:2.4rem; margin-top:60px; }
+        .pricing-cards { display:flex; justify-content:center; gap:30px; margin-top:50px; }
+        .card { width:300px; padding:40px 30px; background:#1e293b; border-radius:12px; }
+        .price { font-size:2rem; color:#facc15; margin:15px 0; }
       </style>
     </head>
     <body>
       <h1>Forsaken Premium</h1>
-      <p class="sub">One script only — Ko-fi secure payments</p>
 
       <div class="pricing-cards">
         <div class="card">
@@ -201,32 +204,28 @@ app.get("/pricing", (_req, res) => {
 // ======================================================
 // REDIRECTS
 // ======================================================
-app.get("/buy-premium", (_req, res) => {
-  res.redirect("/pricing");
-});
+app.get("/buy-premium", (_req, res) => res.redirect("/pricing"));
 
-app.get("/invite-lazycat", (_req, res) => {
+app.get("/invite-lazycat", (_req, res) =>
   res.redirect(
     "https://discord.com/oauth2/authorize?client_id=1433948727118135336&permissions=8&scope=bot%20applications.commands"
-  );
-});
+  )
+);
 
 // ======================================================
 // POLL SYSTEM
 // ======================================================
 app.get("/poll", (_req, res) => {
-  res.send(`<h1>Poll system coming soon...</h1>`);
+  res.send("<h1>Poll system coming soon...</h1>");
 });
 
 // ======================================================
 // BLOCK /secrets
 // ======================================================
-app.use("/secrets", (_req, res) =>
-  res.status(403).send("Access Denied")
-);
+app.use("/secrets", (_req, res) => res.status(403).send("Access Denied"));
 
 // ======================================================
-// START SERVER
+// START SERVER (RAILWAY SAFE)
 // ======================================================
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () =>
