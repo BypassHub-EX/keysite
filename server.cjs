@@ -18,7 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 const SCRIPT_FILE_PROTECTED = path.join(__dirname, "secrets", "nmt.scripts");
 const SCRIPT_FILE_PUBLIC = path.join(__dirname, "public", "nmt.script");
 const SCRIPT_FILE_FORSAKEN = path.join(__dirname, "public", "fsk.script");
-const SCRIPT_FILE_FISH = path.join(__dirname, "public", "project-fish.script");
+const SCRIPT_FILE_FISH = path.join(__dirname, "public", "project-fish.script"); // PROJECT-FISH & FOREST
 
 // Keys + Poll
 const KEYS_FILE = path.join(__dirname, "public", "keys.txt");
@@ -89,10 +89,17 @@ app.get("/forsaken.script", (req, res) => {
   res.type("text/plain").sendFile(SCRIPT_FILE_FORSAKEN);
 });
 
-// ✅ NEW — PROJECT-FISH (EXACT SAME FORMAT)
+// PROJECT FISH (MAIN)
 app.get("/project-fish.script", (req, res) => {
   if (!fs.existsSync(SCRIPT_FILE_FISH))
     return res.status(500).send("Project Fish script not found.");
+  res.type("text/plain").sendFile(SCRIPT_FILE_FISH);
+});
+
+// PROJECT FOREST (USES SAME FILE AS PROJECT FISH)
+app.get("/project-forest.script", (req, res) => {
+  if (!fs.existsSync(SCRIPT_FILE_FISH))
+    return res.status(500).send("Project Forest script not found.");
   res.type("text/plain").sendFile(SCRIPT_FILE_FISH);
 });
 
@@ -105,52 +112,51 @@ app.get("/send-rules", (req, res) => {
       {
         title: "Lazy Devs - Rules & Terms",
         description:
-          "**Effective as of October 2025**\n\nThis server is a private hub for advanced scripting discussions, tool previews, and automation logic.",
+          "**Effective as of October 2025**\nThis server is a private hub for advanced scripting discussions and automation logic.",
         color: 0xff0000,
         fields: [
           {
             name: "1. Purpose",
             value:
-              "**This is a scripting-focused server.** Tools are for testing and educational use.\nAbuse = your responsibility.",
+              "**This is a scripting-focused server.** Tools here are for educational/testing use only.",
           },
           {
             name: "2. Behavior",
             value:
-              "• No spam or drama.\n• No harassment.\n• Be respectful in all channels.",
+              "• No spam or harassment.\n• Stay respectful.\n• Keep channels clean.",
           },
           {
             name: "3. Script Access",
             value:
-              "• Keys required.\n• No sharing, reselling, or bypassing keys.\n• Any violations = blacklist.",
+              "• Keys required.\n• No sharing/reselling.\n• Violations = blacklist.",
           },
           {
             name: "4. Legal Notice",
             value:
-              "• No malicious code.\n• No stealers, crashers, or TOS-breaking tools.",
+              "• No malicious code.\n• No stealers, crashers, or illegal tools.",
           },
           {
             name: "5. Ownership",
-            value: "• Do not steal or repost code.\n• Stealing = permanent ban.",
+            value: "• Do NOT steal or repost code.\n• Theft = permanent ban.",
           },
           {
             name: "6. Privacy",
             value:
-              "• Only whitelist data is collected.\n• Never share login info publicly.",
+              "• Only whitelist data is collected.\n• Never post credentials.",
           },
           {
             name: "7. Moderation",
             value:
-              "• Mods may remove users at any time.\n• Ban evasion = permanent blacklist.",
+              "• Mods may remove anything.\n• Evading bans = permanent blacklist.",
           },
           {
             name: "8. Reporting",
-            value:
-              "• Report bugs or rule breaks.\n• Feedback is always appreciated.",
+            value: "• Report bugs or rule breaks.\n• Feedback is appreciated.",
           },
           {
             name: "9. Final Note",
             value:
-              "**Using our scripts = agreeing to all rules listed above.**",
+              "**Using our tools = accepting these rules.**",
           },
         ],
         footer: { text: "www.lazydevs.site" },
