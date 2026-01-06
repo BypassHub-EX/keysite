@@ -1,5 +1,0 @@
-RewriteEngine On
-
-RewriteCond %{REQUEST_URI} \.(html|json|txt)$ [NC]
-RewriteCond %{HTTP_USER_AGENT} !Roblox [NC]
-RewriteRule ^ - [F]
