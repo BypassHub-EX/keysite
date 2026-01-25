@@ -5,14 +5,14 @@ app.disable("x-powered-by");
 
 const LUA_PAYLOAD = `local gameids = {
 blox_fruits = 994732206,
-forsaken = 6331902150
+forsaken = 6331902150,
+shkr = 8539298853
 }
 
 local placeids = {
 fish_it = 121864768012064,
 nmt = 139898971402929,
 fr = 126509999114328,
-shkr = 128001665358186
 }
 
 local Junkie = loadstring(game:HttpGet("https://jnkie.com/sdk/library.lua"))()
@@ -822,7 +822,7 @@ end
 if game.PlaceId == placeids.fr then
 loadstring(game:HttpGet("https://api.jnkie.com/api/v1/luascripts/public/056e9ea3aeaacd64dcc39705667ea9136117acdd20c64cd8749afdac3e0e0f71/download"))()
 end
-if game.PlaceId == shkr then
+if game.GameId == gameids.shkr then
 loadstring(game:HttpGet("https://api.jnkie.com/api/v1/luascripts/public/a7ee9d243eb6e77bc176d8295bbeccaece7fa9eb59759f550bad4307ffdb3197/download"))()
 end
 
