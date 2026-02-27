@@ -5,7 +5,6 @@ app.disable("x-powered-by");
 
 const LUA_PAYLOAD = `local gameids = {
 blox_fruits = 994732206,
-forsaken = 6331902150
 forsaken = 6331902150,
 shkr = 8539298853
 }
