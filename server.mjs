@@ -3,7 +3,7 @@ import express from "express";
 const app = express();
 app.disable("x-powered-by");
 
-const LUA_PAYLOAD = `print("soon"))
+const LUA_PAYLOAD = `print("soon")`
 `.trim();
 
 /* MAIN LOADER */
